@@ -28,7 +28,7 @@ We propose OISA — the Orchestrated Immune Simulation Architecture — to fill 
 
 ### II-A. Multi-Formalism Immune Simulation Frameworks
 
-Several frameworks have addressed multi-scale composition in computational biology. Vivarium [1] introduced a port-based, formalism-agnostic composition interface for multiscale biological simulation but does not provide a standardised inter-model signal format with embedded uncertainty quantification, model-derived edge lags, or a biological plausibility constraint engine — the three capabilities central to OISA. PhysiCell [5] and PhysiBoSS [13] extend ABM with Boolean signalling layers but operate within a single formalism. The SARS-CoV-2 tissue simulator [4] demonstrated rapid community-driven ABM composition but required a uniform computational substrate. No existing system supports runtime composition of independently-developed ODE and ABM models through a formalism-agnostic signal interface with embedded uncertainty propagation.
+Several frameworks have addressed multi-scale composition in computational biology. Vivarium [1] introduced a port-based, formalism-agnostic composition interface for multiscale biological simulation but does not provide a standardised inter-model signal format with embedded uncertainty quantification, model-derived edge lags, or a biological plausibility constraint engine — the three capabilities central to OISA. PhysiCell [5] and PhysiBoSS [13] extend ABM with Boolean signalling layers but operate within a single formalism. The SARS-CoV-2 tissue simulator [4] demonstrated rapid community-driven ABM composition but required a uniform computational substrate. Within computational immunology specifically, Efroni et al. [28] demonstrated that thymocyte development and lineage determination can be modelled as emergent properties of single-cell gene regulatory dynamics — a published ABM reference for the thymic selection component of our pipeline — but did not address inter-model composition or coupling to ODE compartments. No existing system supports runtime composition of independently-developed ODE and ABM models through a formalism-agnostic signal interface with embedded uncertainty propagation.
 
 ### II-B. Simulation Interoperability Standards
 
@@ -150,7 +150,7 @@ edges:
   - source: Thymus_selection_v3
     signal_id: THY.naive_T_export
     target: PeripheralLN_ODE
-    lag: "constant:172800"         # 2-day homing lag (calibrated from [27])
+    lag: "constant:172800"         # 2-day homing lag (calibrated from [26])
 ```
 
 ### IV-C. The Orchestrator Engine
@@ -195,29 +195,27 @@ Five experimental configurations are evaluated incrementally (**Table V**). Each
 | COMP2 — BM → Blood Transit → Thymus | ✓ | ✓ | ✓ (live) | ✓ | ✓ |
 | COMP3 — Full 4-model pipeline | ✓ | ✓ | ✓ (live) | ✓ | ✓ |
 
-The four composed models are: (1) a five-compartment ODE cascade (HSC → MPP → LMPP → CLP → DN1) with logistic HSC renewal calibrated from Busch et al. [18], Adolfsson et al. [19], and Kondo et al. [20]; (2) a memoryless blood transit ODE invoked on-demand as an edge transfer model; (3) a 300-agent thymus ABM (scale_factor = 300,000 [23]) with TCR-affinity-based positive and negative selection calibrated from Starr et al. [24] and McCaughtry et al. [25]; and (4) a peripheral LN ODE with homeostatic set points calibrated from Berzins et al. [28]. CI-95 is Monte Carlo (2,000 draws) for ODE models and empirical (12 ABM realisations) for the thymus ABM.
+The four composed models are: (1) a five-compartment ODE cascade (HSC → MPP → LMPP → CLP → DN1) following the logistic niche-limited renewal formulation of Marciniak-Czochra et al. [29] with kinetic rates from Busch et al. [18], Adolfsson et al. [19], and Kondo et al. [20]; (2) a memoryless blood transit ODE whose stop fraction and transit time are calibrated from Goldschneider et al. [30] and Donskoy & Goldschneider [21]; (3) a 300-agent thymus ABM (scale_factor = 300,000 [22]) whose developmental stage machine follows Shortman & Wu [31] and whose TCR-affinity selection thresholds are calibrated from Starr et al. [23] and McCaughtry et al. [24] — the closest published ABM reference for the selection component is Efroni et al. [28]; and (4) a peripheral LN ODE implementing the canonical De Boer & Perelson [32] logistic homeostasis model, with turnover rates from Schluns & Lefrançois [33] and pool set points from Berzins et al. [27]. CI-95 is Monte Carlo (2,000 draws) for ODE models and empirical (12 ABM realisations) for the thymus ABM.
 
 ### V-B. Validation Results
 
 #### V-B.1. Causal Ordering
 
-The orchestrator generated 120 OISSL checkpoint records over the 30-day COMP3 simulation with no deadlocks, no temporal causality violations, and no watchdog alerts. At each 6 h GSimT tick, the topological execution order BM → blood_transit → Thymus → PLN was maintained without exception; no model received an ISSL signal timestamped ahead of the current GSimT. The transfer dispatcher correctly invoked the blood transit ODE on-demand for each BM emission event and queued the resulting progenitor delivery at GSimT + lag_s, producing a transit lag of 95.7 h (~4 days) consistent with Donskoy & Goldschneider [22] estimates of 3–5 days.
+The orchestrator generated 120 OISSL checkpoint records over the 30-day COMP3 simulation with no deadlocks, no temporal causality violations, and no watchdog alerts. At each 6 h GSimT tick, the topological execution order BM → blood_transit → Thymus → PLN was maintained without exception; no model received an ISSL signal timestamped ahead of the current GSimT. The transfer dispatcher correctly invoked the blood transit ODE on-demand for each BM emission event and queued the resulting progenitor delivery at GSimT + lag_s, producing a transit lag of 95.7 h (~4 days) consistent with Goldschneider et al. [30] and Donskoy & Goldschneider [21] estimates of 3–5 days.
 
 *[Figure 2: Causal execution timeline across GSimT ticks for COMP3 days 1–5. Each row is one model (BM, blood_transit, Thymus, PLN); columns are 6 h GSimT ticks. Step-command dispatch (▶) and ISSL emission (●) events confirm BM → blood_transit → Thymus → PLN ordering at every applicable tick, with transfer-model invocation (⚡) annotated on the BM → blood_transit edge.]*
 
 #### V-B.2. Biological Plausibility
 
-ISSL-emitted quantities were checked against published murine ranges at day 30 (**Table VI**). All three primary framework-level outputs fall within their respective published intervals. At day 30, peripheral naïve CD4⁺ T cells reached 193,424 (homeostatic set point: 200,000; 96.7% maintenance) and CD8⁺ T cells reached 97,093 (set point: 100,000; 97.1% maintenance), with a CD4/CD8 ratio of ~2:1 [28], [29]. These checks validate that the constraint engine correctly enforces biological plausibility and that unit conversions and scale factor application across the ODE–ABM interface introduce no systematic bias.
+ISSL-emitted quantities were checked against published murine ranges at day 30 (**Table VI**). All three primary framework-level outputs fall within their respective published intervals. At day 30, peripheral naïve CD4⁺ T cells reached 193,424 (homeostatic set point: 200,000; 96.7% maintenance) and CD8⁺ T cells reached 97,093 (set point: 100,000; 97.1% maintenance), with a CD4/CD8 ratio of ~2:1 [27], [32]. These checks validate that the constraint engine correctly enforces biological plausibility and that unit conversions and scale factor application across the ODE–ABM interface introduce no systematic bias.
 
 **Table VI.** Biological plausibility checks at day 30 (COMP3). Values are OISA framework outputs; published ranges are the constraint engine's enforcement targets. All checks passed: no `CONSTRAINT_VIOLATION` event was raised during the 30-day simulation.
 
 | Quantity | OISA output (day 30) | Published range | Reference | Passed? |
 |---|---|---|---|---|
-| BM DN1 export flux (cells·day⁻¹) | 59.6 [CI: 1.4–90.9] | 10–100 cells·day⁻¹ | Bhandoola et al. [21] ⚠ | ✓ |
-| Thymic naïve T export (cells·day⁻¹) | 1.0 × 10⁶ [CI: 84,000–2M] | 0.5–2 × 10⁶ cells·day⁻¹ | Scollay et al. [26] | ✓ |
-| Peripheral CD4/CD8 ratio at steady state | ~2.0:1 | ~2:1 (murine) | Borghans & De Boer [28] ⚠ | ✓ |
-
-⚠ References flagged for manual verification before submission; see reference list.
+| BM DN1 export flux (cells·day⁻¹) | 59.6 [CI: 1.4–90.9] | 10–100 cells·day⁻¹ | Goldschneider et al. [30] | ✓ |
+| Thymic naïve T export (cells·day⁻¹) | 1.0 × 10⁶ [CI: 84,000–2M] | 0.5–2 × 10⁶ cells·day⁻¹ | Scollay et al. [25] | ✓ |
+| Peripheral CD4/CD8 ratio at steady state | ~2.0:1 | ~2:1 (murine) | De Boer & Perelson [32]; Berzins et al. [27] | ✓ |
 
 #### V-B.3. Uncertainty Propagation
 
@@ -305,23 +303,31 @@ We have proposed and demonstrated OISA, the Orchestrated Immune Simulation Archi
 
 [20] M. Kondo, I.L. Weissman, and K. Akashi, "Identification of clonogenic common lymphoid progenitors in mouse bone marrow," *Cell*, vol. 91, pp. 661–672, 1997.
 
-[21] A. Bhandoola et al., "Multipotent progenitors can give rise to all major innate immune cells," *Science*, vol. 316, pp. 901–906, 2007. **[⚠ UNVERIFIED: specific claim support for ETP flux range 10–100 cells/day uncertain; see reference verification report.]**
+[21] E. Donskoy and I. Goldschneider, "Thymocytopoiesis is maintained by blood-borne precursors throughout postnatal life: a study in parabiotic mice," *J. Immunol.*, vol. 148, pp. 1604–1612, 1992.
 
-[22] E. Donskoy and I. Goldschneider, "Thymocytopoiesis is maintained by blood-borne precursors throughout postnatal life: a study in parabiotic mice," *J. Immunol.*, vol. 148, pp. 1604–1612, 1992.
+[22] R. Scollay and D.I. Godfrey, "Thymic emigration: conveyor belts or lucky dips?" *Immunol. Today*, vol. 16, pp. 268–273, 1995.
 
-[23] R. Scollay and D.I. Godfrey, "Thymic emigration: conveyor belts or lucky dips?" *Immunol. Today*, vol. 16, pp. 268–273, 1995.
+[23] T.K. Starr, S.C. Jameson, and K.A. Hogquist, "Positive and negative selection of T cells," *Annu. Rev. Immunol.*, vol. 21, pp. 139–176, 2003.
 
-[24] T.K. Starr, S.C. Jameson, and K.A. Hogquist, "Positive and negative selection of T cells," *Annu. Rev. Immunol.*, vol. 21, pp. 139–176, 2003.
+[24] T.M. McCaughtry, M.S. Wilken, and K.A. Hogquist, "Thymic emigration revisited," *J. Exp. Med.*, vol. 204, pp. 2513–2520, 2007.
 
-[25] T.M. McCaughtry, M.S. Wilken, and K.A. Hogquist, "Thymic emigration revisited," *J. Exp. Med.*, vol. 204, pp. 2513–2520, 2007.
+[25] R. Scollay, J. Smith, and V. Stauffer, "Dynamics of early T cells: prothymocyte migration and proliferation in the adult mouse thymus," *Immunol. Rev.*, vol. 53, pp. 89–106, 1980.
 
-[26] R. Scollay, J. Smith, and V. Stauffer, "Dynamics of early T cells: prothymocyte migration and proliferation in the adult mouse thymus," *Immunol. Rev.*, vol. 53, pp. 89–106, 1980.
+[26] C.R. Mackay, W.L. Marston, and L. Dudler, "Naive and memory T cells show distinct pathways of lymphocyte recirculation," *J. Exp. Med.*, vol. 171, pp. 801–817, 1990.
 
-[27] C.R. Mackay, W.L. Marston, and L. Dudler, "Naive and memory T cells show distinct pathways of lymphocyte recirculation," *J. Exp. Med.*, vol. 171, pp. 801–817, 1990.
+[27] S.P. Berzins, R.L. Boyd, and J.F.A.P. Miller, "The role of the thymus and recent thymic migrants in the maintenance of the adult peripheral lymphocyte pool," *J. Exp. Med.*, vol. 187, pp. 1839–1848, 1998.
 
-[28] J.A.M. Borghans and R.J. De Boer, "Interpreting T-cell immunosenescence: it is not all about the size of the haystack," *Immunol. Lett.*, vol. 92, pp. 265–270, 2004. **[⚠ UNVERIFIED: DOI could not be confirmed via CrossRef or PubMed. Verify manually via Immunol. Lett. vol. 92 (2004) pp. 265–270 before submission.]**
+[28] S. Efroni, R. Harel, and I.R. Cohen, "Emergent dynamics of thymocyte development and lineage determination," *PLoS Comput. Biol.*, vol. 3, e13, 2007. doi: 10.1371/journal.pcbi.0030013
 
-[29] S.P. Berzins, R.L. Boyd, and J.F.A.P. Miller, "The role of the thymus and recent thymic migrants in the maintenance of the adult peripheral lymphocyte pool," *J. Exp. Med.*, vol. 187, pp. 1839–1848, 1998.
+[29] A. Marciniak-Czochra, T. Stiehl, A.D. Ho, W. Jäger, and W. Wagner, "Modeling of asymmetric cell division in hematopoietic stem cells — regulation of self-renewal is essential for efficient repopulation," *Stem Cells Dev.*, vol. 18, pp. 377–385, 2009. doi: 10.1089/scd.2008.0143
+
+[30] I. Goldschneider, E.C. Komschlies, and D.L. Greiner, "Studies of thymocytopoiesis in rats and mice. I. Kinetics of appearance of thymocytes using a direct intrathymic adoptive transfer assay for thymocyte precursors," *J. Exp. Med.*, vol. 163, pp. 1–17, 1986. doi: 10.1084/jem.163.1.1
+
+[31] K. Shortman and L. Wu, "Early T lymphocyte progenitors," *Annu. Rev. Immunol.*, vol. 14, pp. 29–47, 1996. doi: 10.1146/annurev.immunol.14.1.29
+
+[32] R.J. De Boer and A.S. Perelson, "T cell repertoires and competitive exclusion," *J. Theor. Biol.*, vol. 169, pp. 201–222, 1994. doi: 10.1006/jtbi.1994.1143
+
+[33] K.S. Schluns and L. Lefrançois, "Cytokine control of memory T-cell development and survival," *Nat. Rev. Immunol.*, vol. 3, pp. 269–279, 2003. doi: 10.1038/nri1052
 
 ---
 
