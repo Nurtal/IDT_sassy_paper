@@ -104,3 +104,54 @@ Voilà ce que l'investigation révèle. Let me synthesize the findings into a co
   - Références : séquence propre [1]–[33], sans trous — les deux refs inconnues supprimées                                                                                                                                                                                                                                  
                                                                                                                                                                                                                                                                                                                             
   Les reviewers IEEE BIBM peuvent maintenant vérifier chaque composant du pipeline de validation contre une publication primaire.           
+
+
+  ## Recherche de nouveaux modeles:
+  Paires candidates ODE + ABM                                                                                                                                                                               
+                                                                                                                                                                                                            
+  Paire 1 — RECOMMANDÉE : Influenza systémique (ODE) + Tissu épithélial viral (ABM)                                                                                                                         
+                                                                                                                                                                                                            
+  ┌───────────────────┬────────────────────────────────────────────────┬──────────────────────────────────────────────────────────────────────┐
+  │                   │                      ODE                       │                                 ABM                                  │                                                             
+  ├───────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+  │ Modèle            │ Miao et al. 2010                               │ Sego et al. 2020                                                     │
+  ├───────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────┤
+  │ BioModels ID      │ BIOMD0000000546 ✅ SBML                        │ GitHub + nanoHUB                                                     │                                                             
+  ├───────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────┤                                                             
+  │ Plateforme        │ SBML (BioModels DB)                            │ CompuCell3D (Python, open-source)                                    │                                                             
+  ├───────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────┤                                                             
+  │ Ce qu'il modélise │ Cinétique virale systémique, CTL CD8+, IgG/IgM │ Infection épithéliale cellule-par-cellule, IFN, dommages tissulaires │
+  ├───────────────────┼────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────┤                                                             
+  │ Journal           │ J. Theor. Biol., 2010                          │ PLOS Comput. Biol., 2020                                             │
+  └───────────────────┴────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────────────┘                                                             
+                                     
+  Couplage biologique : L'ABM modélise l'échelle tissulaire (poumon) — propagation virale, réponse innée locale. L'ODE modélise l'échelle systémique — expansion des T cells, anticorps circulants.         
+  Variables couplées : charge virale tissulaire (ABM → ODE) + recrutement des T cells circulantes (ODE → ABM).
+                                                                                                                                                                                                            
+  Point fort SBML : PhysiCell (alternative au CompuCell3D) intègre nativement des modèles SBML via libRoadrunner — ce qui permettrait une démonstration d'interopérabilité SBML directe.                    
+    
+  ---                                                                                                                                                                                                       
+  Paire 2 — SOLIDE : ODE innate+adaptative (Hancioglu) + ABM ganglion lymphatique (Bogle-Dunbar)
+                                                                                                                                                                                                            
+  - ODE : BIOMD0000000711 (Hancioglu 2007, 10 équations, innate + adaptative, SBML ✅)
+  - ABM : Bogle & Dunbar 2010/2012 — T cells dans le ganglion (lattice-based, PLoS ONE)                                                                                                                     
+  - Couplage : L'ABM calcule le taux d'activation des T cells (rencontres avec DCs) → alimente le compartiment CTL de l'ODE. L'ODE donne la charge virale → détermine la quantité d'antigène présentée dans 
+  l'ABM.                                                                                                                                                                                                    
+                                                                                                                                                                                                            
+  ---                                                                                                                                                                                                       
+  Paire 3 — INTÉRESSANTE : Cinétique anticorps (ODE) + Centre germinatif (ABM)
+                                                                                                                                                                                                            
+  - ODE : Miao 2010 (BIOMD0000000546) ou modèle HIV Perelson (BIOMD0000000874)
+  - ABM : Germinal Center models (cobeylab/gcdynamics sur GitHub, ou Hyphasma/Mafalda)                                                                                                                      
+  - Couplage : L'ABM simule la maturation d'affinité des B cells → produit une distribution d'affinité qui module le taux de neutralisation dans l'ODE.                                                     
+  - Limite : Les modèles GC ne sont pas en SBML, moins standardisés.                                                                                                                                        
+                                                                                                                                                                                                            
+  ---                                                                                                                                                                                                       
+  Recommandation                                                                                                                                                                                            
+                                     
+  La Paire 1 est la plus forte pour le papier :
+  - Les deux modèles sont publiés et bien cités                                                                                                                                                             
+  - L'ODE est en SBML dans BioModels (citable avec un ID permanent)
+  - Le contexte biologique est cohérent (infection respiratoire virale)                                                                                                                                     
+  - La séparation des échelles (tissu vs. systémique) illustre parfaitement le message d'interopérabilité                                                                                                   
+  - Niarakis et al. 2024 (npj Systems Biology) valide explicitement cette architecture ODE-systémique + ABM-tissulaire comme standard pour les immune digital twins    
