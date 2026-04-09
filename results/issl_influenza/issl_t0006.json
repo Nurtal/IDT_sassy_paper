@@ -1,0 +1,97 @@
+{
+  "tick": 6,
+  "gsim_time_days": 1.5,
+  "ode": {
+    "envelope": {
+      "model_id": "miao2010_ode",
+      "model_version": "BIOMD0000000546",
+      "sim_time_s": 151200.0,
+      "formalism": "ODE",
+      "schema_uri": "schemas/issl_v1.schema.json"
+    },
+    "continuous_state": [
+      {
+        "label": "Ep",
+        "count": 268435.02853021765,
+        "unit": "cells",
+        "ci_95": null
+      },
+      {
+        "label": "Eps",
+        "count": 271421.7445003407,
+        "unit": "cells",
+        "ci_95": null
+      },
+      {
+        "label": "V",
+        "count": 3455736.6932249595,
+        "unit": "copies/mL",
+        "ci_95": null
+      }
+    ],
+    "export_signals": [
+      {
+        "signal_id": "miao2010.viral_load",
+        "label": "V",
+        "value": 3455736.6932249595,
+        "unit": "copies/mL"
+      },
+      {
+        "signal_id": "miao2010.infected_fraction",
+        "label": "Eps_fraction",
+        "value": 0.5027662114465627,
+        "unit": "dimensionless"
+      }
+    ],
+    "watchdog": {
+      "status": "OK",
+      "divergence_score": 0.0,
+      "next_checkpoint_s": 172800.0
+    }
+  },
+  "abm": {
+    "envelope": {
+      "model_id": "sego2020_immune_abm",
+      "model_version": "github:covid-tissue-models@5b7e42c",
+      "sim_time_s": 172800.0,
+      "formalism": "ABM",
+      "agent_count": 0,
+      "scale_factor": 84100,
+      "schema_uri": "schemas/issl_v1.schema.json"
+    },
+    "continuous_state": [
+      {
+        "label": "S",
+        "description": "Immune recruitment state variable (Sego2020 ImmuneRecruitmentSteppable)",
+        "count": 9.999535154203704,
+        "unit": "AU",
+        "ci_95": null
+      },
+      {
+        "label": "n_immune",
+        "count": 0,
+        "unit": "cells",
+        "ci_95": null
+      }
+    ],
+    "export_signals": [
+      {
+        "signal_id": "sego2020.immune_cell_count",
+        "label": "n_immune",
+        "value": 0.0,
+        "unit": "cells"
+      },
+      {
+        "signal_id": "sego2020.total_cytokine",
+        "label": "totalCytokine",
+        "value": 0.0,
+        "unit": "pM"
+      }
+    ],
+    "watchdog": {
+      "status": "OK",
+      "divergence_score": 0.0,
+      "next_checkpoint_s": 259200.0
+    }
+  }
+}
