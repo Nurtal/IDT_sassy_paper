@@ -29,12 +29,17 @@ import roadrunner
 # Path to the downloaded SBML (not modified)
 _SBML_PATH = os.path.join(os.path.dirname(__file__), "BIOMD0000000546_model1.xml")
 
-# Conversion: immune cells → k_E parameter in SBML (mL·cell⁻¹·day⁻¹)
-# Sego2020 epithelial grid: 290×290 cells × cell_volume (12 um)² = ~1 cm² tissue patch
-# Estimated tissue volume ~0.01 mL; k_E_per_cell ~ 2e-4 mL·cell⁻¹·day⁻¹ (Nowak & May 2000)
-_K_E_PER_IMMUNE_CELL = 2e-4  # mL·cell⁻¹·day⁻¹  [published range: 1e-4 – 1e-3]
-# Conversion viral load (copies/mL) → cytokine proxy for coupling
-_V_TO_CK_SCALE = 1e-6        # dimensionless scale factor
+# Miao2010 Table 1: k_E = killing rate coefficient (mL · cell⁻¹ · day⁻¹)
+# In the SBML, killing rate = k_E × Eps × T_E_T
+# where T_E_T is the CTL effector count (cells/mL) and k_E is the rate constant.
+# Published range from Miao 2010 Table 1: k_E ~ 2e-5 mL·cell⁻¹·day⁻¹
+_K_E_RATE_CONST = 2e-5    # mL·cell⁻¹·day⁻¹  (Miao 2010 Table 1)
+
+# Sego2020 scale factor: n_immune (discrete tissue agents) → CTL/mL in Miao2010 compartment
+# Tissue compartment ~ 0.01 mL; Sego2020 grid ~ 84,000 cells
+# Published CTL density at peak: ~10³–10⁶ CTL/mL (Miao 2010 Fig 2)
+# Scale: each tissue immune cell ≈ 100 CTL/mL in the systemic compartment (conservative)
+_N_IMMUNE_TO_CTL_PER_ML = 100.0   # CTL/mL per tissue immune agent
 
 
 class Miao2010Adapter:
@@ -53,6 +58,9 @@ class Miao2010Adapter:
         self._sim_time_s: float = 0.0
         # The SBML time is in days; step_period maps seconds to days
         self._step_period_s: float = 6 * 3600  # 6 h default
+        # Set k_E to published rate constant (Miao 2010 Table 1) — stays fixed
+        # T_E_T (CTL effector count) is updated dynamically via accept_issl()
+        self._rr["k_E"] = _K_E_RATE_CONST
 
     # ------------------------------------------------------------------
     # Internal step — delegates entirely to roadrunner / SBML
@@ -117,15 +125,21 @@ class Miao2010Adapter:
     def accept_issl(self, issl: dict) -> None:
         """
         Accept ISSL record from the Sego2020 immune model.
-        Injects n_immune → k_E into the SBML via roadrunner.setValue().
+        Maps n_immune → T_E_T (CTL effector count) in the SBML via roadrunner.setValue().
+
+        SBML kinetics: killing rate = k_E × Eps × T_E_T
+          k_E  = rate constant (Miao 2010 Table 1, set at init, stays fixed)
+          T_E_T = CTL effector count (cells/mL), updated here from Sego2020 signal
+
         Zero changes to BIOMD0000000546_model1.xml.
         """
         for sig in issl.get("export_signals", []):
             if sig["signal_id"] == "sego2020.immune_cell_count":
                 n_immune = float(sig["value"])
-                k_e = n_immune * _K_E_PER_IMMUNE_CELL
-                # roadrunner standard API — injects into running SBML without reloading
-                self._rr["k_E"] = k_e
+                # Convert tissue immune agents → CTL/mL in Miao2010 compartment
+                ctl_per_ml = n_immune * _N_IMMUNE_TO_CTL_PER_ML
+                # roadrunner standard API — injects T_E_T into running SBML without reloading
+                self._rr["T_E_T"] = ctl_per_ml
 
     # ------------------------------------------------------------------
     # Convenience: viral load as scalar (for orchestrator coupling)
