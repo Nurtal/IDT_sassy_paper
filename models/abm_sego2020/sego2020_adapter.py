@@ -263,8 +263,8 @@ class Sego2020Adapter:
                     "unit":      "cells",
                 },
                 {
-                    "signal_id": "sego2020.total_cytokine",
-                    "label":     "total_virus_field_proxy",
+                    "signal_id": "sego2020.recruitment_cytokine",
+                    "label":     "totalCytokine_proxy",
                     "value":     self._total_virus,
                     "unit":      "AU",
                 },

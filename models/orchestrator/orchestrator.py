@@ -34,9 +34,9 @@ _ABM_DT_S      = 24 * _SECS_PER_HOUR   # 24 h — ABM advances every 4 ticks
 
 class OISAOrchestrator:
 
-    def __init__(self, output_dir: Path):
+    def __init__(self, output_dir: Path, ipc_dir: Path | None = None):
         self.ode = Miao2010Adapter()
-        self.abm = Sego2020Adapter()
+        self.abm = Sego2020Adapter(ipc_dir=ipc_dir) if ipc_dir else Sego2020Adapter()
         self.output_dir = output_dir
         output_dir.mkdir(parents=True, exist_ok=True)
         self._tick = 0

@@ -144,12 +144,12 @@ class TestISSLStructure:
     """Verify ISSL output is well-formed."""
 
     def test_emit_contains_required_signals(self, adapter):
-        """emit_issl() must include sego2020.immune_cell_count and sego2020.total_cytokine."""
+        """emit_issl() must include sego2020.immune_cell_count and sego2020.recruitment_cytokine."""
         adapter._step(_DT_24H)
         issl = adapter.emit_issl()
         signal_ids = {s["signal_id"] for s in issl["export_signals"]}
         assert "sego2020.immune_cell_count" in signal_ids
-        assert "sego2020.total_cytokine" in signal_ids
+        assert "sego2020.recruitment_cytokine" in signal_ids
 
     def test_envelope_formalism_is_ABM(self, adapter):
         """Formalism must be 'ABM' — the model is a CompuCell3D spatial ABM."""
