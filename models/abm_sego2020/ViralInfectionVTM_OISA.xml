@@ -1,0 +1,140 @@
+<!--OISA-adapted XML for Sego et al. 2020 CompuCell3D model.
+    Source: SegoAponte2020/example/ViralInfectionVTM.xml (commit 5b7e42c)
+    Change from original: Steps 1001 → 1010  (≥ 1008 MCS for 14 days × 72 MCS/day)
+    All other parameters: UNCHANGED (including id= attributes for get_xml_element).
+
+    Reference: Sego et al. 2020, PLoS Comput Biol 16(11):e1008451.
+               DOI: 10.1371/journal.pcbi.1008451
+-->
+
+<CompuCell3D Revision="20200118" Version="4.1.1">
+
+    <Metadata>
+        <!-- Basic properties simulation -->
+        <NumberOfProcessors>1</NumberOfProcessors>
+        <DebugOutputFrequency>100</DebugOutputFrequency>
+    </Metadata>
+
+    <Potts>
+        <!-- Basic properties of CPM (GGH) algorithm -->
+        <Dimensions x="90" y="90" z="2"/>
+        <Steps>1010</Steps>
+        <Temperature>10.0</Temperature>
+        <NeighborOrder>3</NeighborOrder>
+        <Boundary_x>Periodic</Boundary_x>
+        <Boundary_y>Periodic</Boundary_y>
+    </Potts>
+
+    <Plugin Name="CellType">
+    <!-- Listing all cell types in the simulation -->
+        <CellType TypeId="0" TypeName="Medium"/>
+        <CellType Freeze="" TypeId="1" TypeName="Uninfected"/>
+        <CellType Freeze="" TypeId="2" TypeName="Infected"/>
+        <CellType Freeze="" TypeId="3" TypeName="VirusReleasing"/>
+        <CellType Freeze="" TypeId="4" TypeName="Dying"/>
+        <CellType TypeId="5" TypeName="Immunecell"/>
+    </Plugin>
+
+    <Plugin Name="Volume"/>
+
+    <Plugin Name="CenterOfMass"/>
+
+    <Plugin Name="NeighborTracker"/>
+
+    <Plugin Name="PixelTracker"/>
+
+    <Plugin Name="Contact">
+        <!-- Specification of adhesion energies -->
+        <Energy Type1="Medium" Type2="Medium">10.0</Energy>
+        <Energy Type1="Medium" Type2="Uninfected">10.0</Energy>
+        <Energy Type1="Medium" Type2="Infected">10.0</Energy>
+        <Energy Type1="Medium" Type2="VirusReleasing">10.0</Energy>
+        <Energy Type1="Medium" Type2="Dying">10.0</Energy>
+        <Energy Type1="Medium" Type2="Immunecell">10.0</Energy>
+        <Energy Type1="Uninfected" Type2="Uninfected">10.0</Energy>
+        <Energy Type1="Uninfected" Type2="Infected">10.0</Energy>
+        <Energy Type1="Uninfected" Type2="VirusReleasing">10.0</Energy>
+        <Energy Type1="Uninfected" Type2="Dying">10.0</Energy>
+        <Energy Type1="Uninfected" Type2="Immunecell">10.0</Energy>
+        <Energy Type1="Infected" Type2="Infected">10.0</Energy>
+        <Energy Type1="Infected" Type2="VirusReleasing">10.0</Energy>
+        <Energy Type1="Infected" Type2="Dying">10.0</Energy>
+        <Energy Type1="Infected" Type2="Immunecell">10.0</Energy>
+        <Energy Type1="VirusReleasing" Type2="VirusReleasing">10.0</Energy>
+        <Energy Type1="VirusReleasing" Type2="Dying">10.0</Energy>
+        <Energy Type1="VirusReleasing" Type2="Immunecell">10.0</Energy>
+        <Energy Type1="Dying" Type2="Dying">10.0</Energy>
+        <Energy Type1="Dying" Type2="Immunecell">10.0</Energy>
+        <Energy Type1="Immunecell" Type2="Immunecell">25.0</Energy>
+        <NeighborOrder>3</NeighborOrder>
+    </Plugin>
+
+   <Plugin Name="Chemotaxis">
+        <ChemicalField Name="Virus">
+        </ChemicalField>
+        <ChemicalField Name="cytokine">
+        </ChemicalField>
+   </Plugin>
+
+   <Plugin Name="Secretion">
+   </Plugin>
+
+   <Steppable Type="DiffusionSolverFE">
+      <DiffusionField Name="Virus">
+         <DiffusionData>
+            <FieldName>Virus</FieldName>
+            <GlobalDiffusionConstant id = "virus_dc">10.0</GlobalDiffusionConstant>
+            <GlobalDecayConstant id = "virus_decay">1.0E-5</GlobalDecayConstant>
+         </DiffusionData>
+         <BoundaryConditions>
+            <Plane Axis="X">
+               <Periodic/>
+            </Plane>
+            <Plane Axis="Y">
+               <Periodic/>
+            </Plane>
+            <Plane Axis="Z">
+               <ConstantDerivative PlanePosition="Min" Value="0.0"/>
+               <ConstantDerivative PlanePosition="Max" Value="0.0"/>
+            </Plane>
+         </BoundaryConditions>
+      </DiffusionField>
+      <DiffusionField Name="cytokine">
+         <DiffusionData>
+            <FieldName>cytokine</FieldName>
+            <GlobalDiffusionConstant id = "cytokine_dc">10.0</GlobalDiffusionConstant>
+            <GlobalDecayConstant id = "cytokine_decay">0</GlobalDecayConstant>
+         </DiffusionData>
+         <BoundaryConditions>
+            <Plane Axis="X">
+               <Periodic/>
+            </Plane>
+            <Plane Axis="Y">
+               <Periodic/>
+            </Plane>
+            <Plane Axis="Z">
+               <ConstantDerivative PlanePosition="Min" Value="0.0"/>
+               <ConstantDerivative PlanePosition="Max" Value="0.0"/>
+            </Plane>
+         </BoundaryConditions>
+      </DiffusionField>
+      <DiffusionField Name="oxidator">
+         <DiffusionData>
+            <FieldName>oxidator</FieldName>
+            <GlobalDiffusionConstant id = "oxi_dc">10.0</GlobalDiffusionConstant>
+            <GlobalDecayConstant id = "oxi_decay">0</GlobalDecayConstant>
+         </DiffusionData>
+         <BoundaryConditions>
+            <Plane Axis="X">
+               <Periodic/>
+            </Plane>
+            <Plane Axis="Y">
+               <Periodic/>
+            </Plane>
+            <Plane Axis="Z">
+                <Periodic/>
+            </Plane>
+         </BoundaryConditions>
+      </DiffusionField>
+   </Steppable>
+</CompuCell3D>

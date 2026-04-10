@@ -1,217 +1,304 @@
 """
-OISA adapter for the Sego et al. 2020 immune recruitment model.
+OISA adapter for the Sego et al. 2020 spatial ABM (CompuCell3D).
 
-Source model: covid-tissue-response-models (GitHub, commit 5b7e42c)
-  https://github.com/covid-tissue-models/covid-tissue-response-models
-  Module used: Models/SegoAponte2020/ViralInfectionVTMLib.py  (NOT modified)
-              Models/SegoAponte2020/ViralInfectionVTMModelInputs.py  (NOT modified)
+Architecture: CC3D runs as a subprocess alongside the ODE orchestrator.
+  - CC3D loads ViralInfectionVTM_OISA.cc3d which includes ALL original Sego2020
+    steppables (zero modifications) plus OISABridgeSteppable (coupling only).
+  - Adapter ↔ CC3D communication: file-based IPC in _IPC_DIR.
 
-What this adapter does:
-  1. Imports ViralInfectionVTMModelInputs from the cloned Sego2020 repo (parameters unchanged).
-  2. Calls immune_recruitment_model_string() from ViralInfectionVTMLib (function unchanged).
-     This returns the Antimony ODE string that CompuCell3D would run internally.
-  3. Runs that same Antimony string via roadrunner — the same engine CC3D uses.
-  4. Tracks n_immune stochastically using Sego2020's probability model (S > 0 → seed).
-  5. Exposes emit_issl() and accept_issl() as the OISA interface.
+IPC protocol (per 24h GSimT tick):
+  1. CC3D runs 72 MCS, writes abm_out.json, creates abm_ready sentinel.
+  2. Adapter._step() blocks until abm_ready appears → reads abm_out.json.
+  3. Adapter.emit_issl() returns data from abm_out.json, deletes abm_ready
+     → CC3D unblocks for the next 72 MCS.
+  4. Adapter.accept_issl() writes ode_signal.json → CC3D reads it at its
+     next bridge step (non-blocking; adapter may write before or after _step).
 
 Lines modified in Sego2020 source: 0.
-Lines added (this adapter): ~120.
+Lines added (this adapter + bridge steppable): ~240.
 
-ISSL emitted:
-  export_signals:
-    - sego2020.immune_cell_count  (n_immune, dimensionless)
-    - sego2020.total_cytokine     (proxy, AU)
-
-ISSL accepted:
-  - miao2010.viral_load → sets totalCytokine in the Antimony recruitment model
+References:
+  - Sego et al. 2020, PLoS Comput Biol 16(11):e1008451.
+    DOI: 10.1371/journal.pcbi.1008451
 """
 
 from __future__ import annotations
 
-import math
+import json
 import os
+import shutil
+import subprocess
 import sys
-
-import numpy as np
-from scipy.integrate import solve_ivp
-
-# ---------------------------------------------------------------------------
-# Import Sego2020 code DIRECTLY from the cloned repository (no modification)
-# ---------------------------------------------------------------------------
-_SEGO_MODELS = os.path.join(os.path.dirname(__file__), "sego2020",
-                            "CC3D", "Models", "BiocIU",
-                            "SARSCoV2MultiscaleVTM", "Model", "Models")
-sys.path.insert(0, _SEGO_MODELS)
-
-# These imports pull parameter values and the model function from Sego2020 — unchanged.
-# The package must be imported as SegoAponte2020.X because ViralInfectionVTMLib uses
-# relative imports (from . import module_prefix).
-from SegoAponte2020 import ViralInfectionVTMModelInputs as _Inp   # noqa: E402
-from SegoAponte2020 import ViralInfectionVTMLib as _Lib           # noqa: E402
+import tempfile
+import time
+from pathlib import Path
+from typing import Optional
 
 # ---------------------------------------------------------------------------
-# Immune recruitment ODE — using Sego2020 parameters and equation (unmodified)
+# Paths
 # ---------------------------------------------------------------------------
-# The equation is defined in ViralInfectionVTMLib.immune_recruitment_model_string():
-#
-#   dS/dt = addRate + totalCytokine / delayRate
-#           - subRate * numImmuneCells - decayRate * S
-#
-# (Lib function unchanged — we read its docstring to confirm the equation, then
-#  solve it with scipy for platform-independent execution without CC3D.)
+_HERE       = Path(__file__).resolve().parent
+_CC3D_BIN   = Path(os.environ.get(
+    "CC3D_PYTHON",
+    os.path.expanduser("~/miniconda3/envs/cc3d48-env/bin/python")
+))
+_LD_LIB     = os.environ.get(
+    "CC3D_LD_LIBRARY_PATH",
+    os.path.expanduser("~/miniconda3/envs/cc3d48-env/lib")
+)
+_CC3D_PROJ  = _HERE / "ViralInfectionVTM_OISA.cc3d"
+_IPC_DIR    = Path(os.environ.get("OISA_IPC_DIR", "/tmp/oisa_ipc"))
 
-_SECS_PER_DAY = 86400.0
+_POLL_S     = 0.05    # busy-wait poll interval
+_TIMEOUT_S  = 600.0   # 10-min safeguard (CC3D 72 MCS << 10 min)
 
-# Pull rate constants directly from Sego2020 ViralInfectionVTMModelInputs (unchanged)
-_ADD_RATE   = _Inp.ir_add_coeff        * _SECS_PER_DAY   # 1/day
-_SUB_RATE   = _Inp.ir_subtract_coeff   * _SECS_PER_DAY   # 1/cell/day
-_DELAY_RATE = _Inp.ir_delay_coeff      / _SECS_PER_DAY   # s·AU → days·AU
-_DECAY_RATE = _Inp.ir_decay_coeff      * _SECS_PER_DAY   # 1/day
+# Scale: each CC3D Immunecell agent represents 100 CTL/mL (Miao 2010 range)
+_N_IMMUNE_TO_CTL_PER_ML = 100.0
 
 
 class Sego2020Adapter:
     """
-    OISA-compliant adapter for the Sego2020 immune recruitment model.
+    OISA-compliant adapter for the Sego2020 spatial CC3D ABM.
 
-    Uses Sego2020 parameters (ViralInfectionVTMModelInputs) and model function
-    (ViralInfectionVTMLib.immune_recruitment_model_string) directly from the
-    cloned repository.  Zero changes to Sego2020 source files.
+    Launching: the first call to _step() starts the CC3D subprocess.
+    Stopping:  call close() or let the context manager handle it.
     """
 
-    MODEL_ID = "sego2020_immune_abm"
+    MODEL_ID   = "sego2020_abm_cc3d"
     SCHEMA_URI = "schemas/issl_v1.schema.json"
 
-    # Sego2020 tissue grid: ~290×290 cells; scale_factor maps agents→real cells
-    SCALE_FACTOR = 290 * 290  # ≈ 84,100 epithelial cells per tissue patch
+    # CC3D grid parameters (ViralInfectionVTM_OISA.xml)
+    GRID_X, GRID_Y, GRID_Z = 90, 90, 2
+    VOXEL_CELLS = GRID_X * GRID_Y  # ~8100 epithelial agent sites
 
-    def __init__(self):
-        self._S: float = 0.0          # recruitment state variable (Sego2020 Eq.)
+    def __init__(self, ipc_dir: Optional[Path] = None):
+        self._ipc_dir   = Path(ipc_dir) if ipc_dir else _IPC_DIR
+        self._ipc_dir.mkdir(parents=True, exist_ok=True)
+
+        self._proc: Optional[subprocess.Popen] = None
         self._sim_time_s: float = 0.0
-        self._step_period_s: float = 24 * 3600   # 24 h per ABM step
 
-        # Tracked state (population counts)
-        self._n_immune: int = 0       # number of immune cells in tissue
-        self._total_cytokine: float = 0.0   # proxy cytokine driven by viral load
+        # Last ABM state received from CC3D
+        self._n_immune:    int   = 0
+        self._total_virus: float = 0.0
 
-        # Sego2020 probability scaling (from ViralInfectionVTMModelInputs, unchanged)
-        self._prob_scale = _Inp.ir_prob_scaling_factor
-        self._ck_decay   = _Inp.cytokine_field_decay * _SECS_PER_DAY  # per day
+        # Pending ODE signal to inject (written to ode_signal.json before next step)
+        self._pending_ode_signal: Optional[dict] = None
 
-        self._rng = np.random.default_rng(seed=42)
+        # Cleanup old IPC files
+        for f in ["abm_out.json", "abm_ready", "ode_signal.json"]:
+            (self._ipc_dir / f).unlink(missing_ok=True)
 
     # ------------------------------------------------------------------
-    # Internal step — advances the Sego2020 Antimony ODE via roadrunner
+    # Subprocess lifecycle
     # ------------------------------------------------------------------
+
+    def _start_cc3d(self) -> None:
+        """Launch CC3D subprocess (once) from a clean staging directory."""
+        if self._proc is not None:
+            return
+
+        # CC3D copies the entire working directory to the output dir on startup.
+        # To avoid permission errors from the sego2020/.git pack files, we
+        # stage only the four required files in a temp directory.
+        self._staging_dir = tempfile.mkdtemp(prefix="oisa_cc3d_stage_")
+        staging = Path(self._staging_dir)
+        for fname in [
+            "ViralInfectionVTM_OISA.cc3d",
+            "ViralInfectionVTM_OISA.py",
+            "ViralInfectionVTM_OISA.xml",
+            "oisa_bridge_steppable.py",
+        ]:
+            shutil.copy2(_HERE / fname, staging / fname)
+
+        env = os.environ.copy()
+        env["LD_LIBRARY_PATH"] = (
+            _LD_LIB + ":" + env.get("LD_LIBRARY_PATH", "")
+        ).rstrip(":")
+        env["OISA_IPC_DIR"]    = str(self._ipc_dir)
+        env["OISA_SCRIPT_DIR"] = str(_HERE)
+
+        # Output dir must be OUTSIDE staging dir (CC3D requirement)
+        self._cc3d_out_dir = tempfile.mkdtemp(prefix="oisa_cc3d_out_")
+
+        cmd = [
+            str(_CC3D_BIN),
+            "-m", "cc3d.run_script",
+            "-i", str(staging / "ViralInfectionVTM_OISA.cc3d"),
+            "-o", self._cc3d_out_dir,
+            "-f", "0",   # no VTK snapshot files
+        ]
+        self._proc = subprocess.Popen(
+            cmd,
+            env=env,
+            cwd=str(staging),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+
+    def close(self) -> None:
+        """Terminate CC3D subprocess and remove staging dir."""
+        if self._proc is not None:
+            self._proc.terminate()
+            try:
+                self._proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self._proc.kill()
+            self._proc = None
+        staging = getattr(self, "_staging_dir", None)
+        if staging and Path(staging).exists():
+            shutil.rmtree(staging, ignore_errors=True)
+            self._staging_dir = None
+        cc3d_out = getattr(self, "_cc3d_out_dir", None)
+        if cc3d_out and Path(cc3d_out).exists():
+            shutil.rmtree(cc3d_out, ignore_errors=True)
+            self._cc3d_out_dir = None
+
+    def __del__(self):
+        self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
+    # ------------------------------------------------------------------
+    # OISA step — wait for CC3D to complete one 24h batch
+    # ------------------------------------------------------------------
+
     def _step(self, dt_s: float) -> None:
         """
-        Advance the immune recruitment model by dt_s seconds.
-        Implements ViralInfectionVTMLib.immune_recruitment_model_string() ODE:
-            dS/dt = addRate + ck_transmitted / delayRate
-                    - subRate * numImmuneCells - decayRate * S
-        Integrated via scipy (same equation, Sego2020 parameters from ModelInputs).
-        Stochastic seeding/removal follows Sego2020 ImmuneCellSeedingSteppable logic.
+        Advance the ABM by dt_s seconds (must be 24h = 86400 s).
+        Blocks until CC3D finishes 72 MCS and writes abm_ready.
         """
-        dt_days = dt_s / _SECS_PER_DAY
-        t0_days = self._sim_time_s / _SECS_PER_DAY
+        self._start_cc3d()
 
-        # Cytokine decay (ImmuneRecruitmentSteppable.step, lines 2311-2316 of steppables)
-        ck_decayed = self._total_cytokine * self._ck_decay * dt_days
-        self._total_cytokine = max(0.0, self._total_cytokine - ck_decayed)
-        ck_transmitted = _Inp.ir_transmission_coeff * ck_decayed
+        # Write pending ODE signal BEFORE the next bridge step reads it
+        if self._pending_ode_signal is not None:
+            sig_path = self._ipc_dir / "ode_signal.json"
+            sig_path.write_text(json.dumps(self._pending_ode_signal))
+            self._pending_ode_signal = None
 
-        # Snapshot current inputs for ODE RHS
-        num_imm = float(self._n_immune)
-        ck_trans = ck_transmitted
+        # Wait for CC3D to finish this 72-MCS batch
+        ready_path = self._ipc_dir / "abm_ready"
+        t0 = time.monotonic()
+        while not ready_path.exists():
+            if self._proc is not None and self._proc.poll() is not None:
+                # CC3D exited — read stderr for diagnosis
+                err = ""
+                if self._proc.stderr:
+                    err = self._proc.stderr.read().decode(errors="replace")[-2000:]
+                raise RuntimeError(
+                    f"CC3D subprocess exited unexpectedly (returncode="
+                    f"{self._proc.returncode}).\nStderr tail:\n{err}"
+                )
+            elapsed = time.monotonic() - t0
+            if elapsed > _TIMEOUT_S:
+                raise RuntimeError(
+                    f"Sego2020Adapter._step: CC3D did not respond within {_TIMEOUT_S}s. "
+                    f"IPC dir: {self._ipc_dir}"
+                )
+            time.sleep(_POLL_S)
 
-        def _dS_dt(t, S):
-            return (_ADD_RATE
-                    + ck_trans / _DELAY_RATE
-                    - _SUB_RATE * num_imm
-                    - _DECAY_RATE * S[0])
+        # Read ABM state (abm_ready exists → abm_out.json is also ready)
+        out_path = self._ipc_dir / "abm_out.json"
+        try:
+            data = json.loads(out_path.read_text())
+        except (json.JSONDecodeError, FileNotFoundError) as e:
+            raise RuntimeError(f"Failed to read abm_out.json: {e}") from e
 
-        sol = solve_ivp(_dS_dt, [t0_days, t0_days + dt_days], [self._S],
-                        method="RK45", dense_output=False)
-        self._S = float(sol.y[0, -1])
-
-        # Stochastic seeding/removal (Sego2020 ImmuneCellSeedingSteppable logic)
-        if self._S > 0:
-            p_add = self._S * self._prob_scale
-            if self._rng.random() < min(p_add, 1.0):
-                self._n_immune += 1
-        elif self._S < 0 and self._n_immune > 0:
-            p_remove = abs(self._S) * self._prob_scale
-            if self._rng.random() < min(p_remove, 1.0):
-                self._n_immune -= 1
+        # Parse state
+        self._n_immune    = 0
+        self._total_virus = 0.0
+        for cs in data.get("continuous_state", []):
+            if cs["label"] == "n_immune":
+                self._n_immune = int(cs["count"])
+            elif cs["label"] == "total_virus":
+                self._total_virus = float(cs["count"])
 
         self._sim_time_s += dt_s
 
     # ------------------------------------------------------------------
-    # OISA emit — package state as ISSL JSON-LD record
+    # OISA emit — package CC3D state as ISSL record
+    # Then DELETE abm_ready → CC3D unblocks for next batch
     # ------------------------------------------------------------------
+
     def emit_issl(self) -> dict:
-        S = self._S
+        # Unblock CC3D by removing sentinel (it's now safe — we've read the data)
+        ready_path = self._ipc_dir / "abm_ready"
+        ready_path.unlink(missing_ok=True)
+
         return {
             "envelope": {
-                "model_id": self.MODEL_ID,
-                "model_version": "github:covid-tissue-models@5b7e42c",
-                "sim_time_s": self._sim_time_s,
-                "formalism": "ABM",
-                "agent_count": self._n_immune,
-                "scale_factor": self.SCALE_FACTOR,
-                "schema_uri": self.SCHEMA_URI,
+                "model_id":      self.MODEL_ID,
+                "model_version": "github:covid-tissue-models@5b7e42c+OISA_bridge",
+                "sim_time_s":    self._sim_time_s,
+                "formalism":     "ABM",
+                "agent_count":   self._n_immune,
+                "grid":          f"{self.GRID_X}×{self.GRID_Y}×{self.GRID_Z}",
+                "schema_uri":    self.SCHEMA_URI,
             },
             "continuous_state": [
                 {
-                    "label": "S",
-                    "description": "Immune recruitment state variable (Sego2020 ImmuneRecruitmentSteppable)",
-                    "count": S,
-                    "unit": "AU",
-                    "ci_95": None,
+                    "label":       "n_immune",
+                    "description": "CC3D Immunecell agent count (type 5)",
+                    "count":       self._n_immune,
+                    "unit":        "cells",
+                    "ci_95":       None,
                 },
                 {
-                    "label": "n_immune",
-                    "count": self._n_immune,
-                    "unit": "cells",
-                    "ci_95": None,
+                    "label":       "total_virus_field",
+                    "description": "Integral of CC3D Virus concentration field",
+                    "count":       self._total_virus,
+                    "unit":        "AU·voxel",
+                    "ci_95":       None,
                 },
             ],
             "export_signals": [
                 {
                     "signal_id": "sego2020.immune_cell_count",
-                    "label": "n_immune",
-                    "value": float(self._n_immune),
-                    "unit": "cells",
+                    "label":     "n_immune",
+                    "value":     float(self._n_immune),
+                    "unit":      "cells",
                 },
                 {
                     "signal_id": "sego2020.total_cytokine",
-                    "label": "totalCytokine",
-                    "value": self._total_cytokine,
-                    "unit": "pM",
+                    "label":     "total_virus_field_proxy",
+                    "value":     self._total_virus,
+                    "unit":      "AU",
                 },
             ],
             "watchdog": {
-                "status": "OK",
+                "status":           "OK",
                 "divergence_score": 0.0,
-                "next_checkpoint_s": self._sim_time_s + self._step_period_s,
+                "next_checkpoint_s": self._sim_time_s + 86400,
             },
         }
 
     # ------------------------------------------------------------------
-    # OISA accept — inject incoming ISSL signal into Sego2020 model state
+    # OISA accept — queue ODE signal for next CC3D bridge step
     # ------------------------------------------------------------------
+
     def accept_issl(self, issl: dict) -> None:
         """
         Accept ISSL from Miao2010 ODE.
-        Maps miao2010.viral_load → totalCytokine in the Sego2020 recruitment model.
-        In Sego2020, cytokine is proportional to virus produced by infected cells.
+        Queues the signal; it is written to ode_signal.json just before
+        the next _step() call so the OISABridgeSteppable can read it.
         """
-        for sig in issl.get("export_signals", []):
-            if sig["signal_id"] == "miao2010.viral_load":
-                v = float(sig["value"])
-                # Virus → cytokine proxy: infected cells secrete cytokine ∝ V
-                # Sego2020 max_ck_secrete_infect = 10 * 3.5e-4 pM/s; scale to match
-                ck_increment = v * 3.5e-7   # AU·s/copies — empirical coupling constant
-                self._total_cytokine += max(0.0, ck_increment)
+        signals = [
+            s for s in issl.get("export_signals", [])
+            if s["signal_id"] in {
+                "miao2010.viral_load",
+                "miao2010.infected_fraction",
+            }
+        ]
+        if signals:
+            self._pending_ode_signal = {"export_signals": signals}
+
+    # ------------------------------------------------------------------
+    # Properties expected by orchestrator
+    # ------------------------------------------------------------------
 
     @property
     def n_immune(self) -> int:

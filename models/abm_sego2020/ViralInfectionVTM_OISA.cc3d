@@ -1,0 +1,5 @@
+<Simulation version="4.0">
+   <XMLScript Type="XMLScript">ViralInfectionVTM_OISA.xml</XMLScript>
+   <PythonScript Type="PythonScript">ViralInfectionVTM_OISA.py</PythonScript>
+   <Resource Type="Python">oisa_bridge_steppable.py</Resource>
+</Simulation>
