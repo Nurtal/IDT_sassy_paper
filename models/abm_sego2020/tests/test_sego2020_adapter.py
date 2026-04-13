@@ -38,6 +38,7 @@ os.environ["LD_LIBRARY_PATH"] = (
 
 from models.abm_sego2020.sego2020_adapter import (
     Sego2020Adapter,
+    Sego2020Ensemble,
     _N_IMMUNE_TO_CTL_PER_ML,
 )
 
@@ -270,3 +271,36 @@ class TestCC3DAgentDynamics:
              100 CTL/mL per agent keeps T_E_T in the published range.
         """
         assert _N_IMMUNE_TO_CTL_PER_ML == 100.0
+
+
+# -----------------------------------------------------------------------
+# 5. Sego2020Ensemble (runtime UQ)
+# -----------------------------------------------------------------------
+
+class TestSego2020Ensemble:
+    """Unit tests for the ensemble wrapper (no CC3D subprocess needed)."""
+
+    def test_ensemble_instantiates(self, tmp_path):
+        """Ensemble must create N adapter instances with separate IPC dirs."""
+        ens = Sego2020Ensemble(n_instances=3, ipc_base=tmp_path / "ipc")
+        assert len(ens._adapters) == 3
+        # Each adapter should have a unique IPC directory
+        ipc_dirs = [str(a._ipc_dir) for a in ens._adapters]
+        assert len(set(ipc_dirs)) == 3
+
+    def test_ensemble_accept_broadcasts(self, tmp_path):
+        """accept_issl must broadcast to all N instances."""
+        ens = Sego2020Ensemble(n_instances=3, ipc_base=tmp_path / "ipc")
+        issl = {
+            "export_signals": [
+                {"signal_id": "miao2010.viral_load", "value": 1e6}
+            ]
+        }
+        ens.accept_issl(issl)
+        for a in ens._adapters:
+            assert a._pending_ode_signal is not None
+
+    def test_ensemble_n_immune_property(self, tmp_path):
+        """n_immune property must return 0 before any emit."""
+        ens = Sego2020Ensemble(n_instances=3, ipc_base=tmp_path / "ipc")
+        assert ens.n_immune == 0

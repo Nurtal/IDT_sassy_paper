@@ -26,7 +26,8 @@ sys.path.insert(0, str(_REPO_ROOT / "orchestrator"))
 
 from models.ode_miao2010.miao2010_adapter import Miao2010Adapter
 from models.abm_sego2020.sego2020_adapter import Sego2020Adapter
-from models.orchestrator.orchestrator import OISAOrchestrator
+from models.orchestrator.orchestrator import OISAOrchestrator, SignalQueue
+from models.transfer_blood_transit.blood_transit_adapter import BloodTransitAdapter
 
 _DT_6H  = 6  * 3600
 _DT_24H = 24 * 3600
@@ -289,3 +290,79 @@ class TestCoupledBiology:
             f"Coupled V at day 14 ({V_coupled:.3e}) should be ≤ isolated V ({V_isolated:.3e}) "
             "— CTL killing (k_E > 0) should accelerate viral clearance (Miao 2010)"
         )
+
+
+# -----------------------------------------------------------------------
+# 5. Signal queue and transfer lags
+# -----------------------------------------------------------------------
+
+class TestSignalQueue:
+    """Validate the SignalQueue used for model-derived transfer lags."""
+
+    def test_immediate_signal_no_lag(self):
+        """Signal with transfer_lag_s=None should not be enqueued."""
+        sq = SignalQueue()
+        issl = {"export_signals": [{"signal_id": "test", "value": 1.0, "transfer_lag_s": None}]}
+        # No lag → _route_signal in orchestrator injects immediately, not via queue
+        assert sq.dequeue_ready(0.0) == []
+
+    def test_deferred_signal_arrives_after_delay(self):
+        """Enqueued signal should only be dequeued after its delay elapses."""
+        sq = SignalQueue()
+        issl = {"export_signals": [{"signal_id": "test", "value": 42.0}]}
+        sq.enqueue(issl, delay_s=100.0, current_s=0.0, target="ode")
+        # At t=50, not ready
+        assert sq.dequeue_ready(50.0) == []
+        # At t=100, ready
+        ready = sq.dequeue_ready(100.0)
+        assert len(ready) == 1
+        assert ready[0][0] == issl
+        assert ready[0][1] == "ode"
+
+    def test_queue_drains_after_dequeue(self):
+        """After dequeue, the signal must not appear again."""
+        sq = SignalQueue()
+        sq.enqueue({"data": 1}, delay_s=10.0, current_s=0.0, target="abm")
+        sq.dequeue_ready(10.0)
+        assert sq.dequeue_ready(20.0) == []
+
+
+class TestBloodTransitTransferLag:
+    """Validate model-derived transfer lag from BloodTransitAdapter."""
+
+    def test_blood_transit_emits_transfer_lag_s(self):
+        """BloodTransitAdapter must emit a positive transfer_lag_s in ISSL."""
+        bt = BloodTransitAdapter()
+        bt.accept_issl({
+            "export_signals": [
+                {"signal_id": "bm.progenitor_export", "value": 1000.0}
+            ]
+        })
+        bt._step(86400)
+        issl = bt.emit_issl()
+        lag = issl["export_signals"][0]["transfer_lag_s"]
+        assert lag is not None
+        assert lag > 0
+        # tau ≈ 4 days = 345600 s
+        assert abs(lag - 4.0 * 86400) < 1.0
+
+    def test_blood_transit_signal_routed_with_delay(self):
+        """When routed through SignalQueue, the signal arrives after tau seconds."""
+        bt = BloodTransitAdapter()
+        bt.accept_issl({
+            "export_signals": [
+                {"signal_id": "bm.progenitor_export", "value": 500.0}
+            ]
+        })
+        bt._step(86400)
+        issl = bt.emit_issl()
+
+        sq = SignalQueue()
+        lag = issl["export_signals"][0]["transfer_lag_s"]
+        sq.enqueue(issl, delay_s=lag, current_s=0.0, target="thymus")
+
+        # Not ready at t=2 days
+        assert sq.dequeue_ready(2 * 86400) == []
+        # Ready at t=4 days
+        ready = sq.dequeue_ready(4 * 86400)
+        assert len(ready) == 1

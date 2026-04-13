@@ -54,6 +54,7 @@ class Miao2010Adapter:
     SCHEMA_URI = "schemas/issl_v1.schema.json"
 
     def __init__(self, sbml_path: str = _SBML_PATH):
+        self._sbml_path = sbml_path
         self._rr = roadrunner.RoadRunner(sbml_path)
         self._sim_time_s: float = 0.0
         # The SBML time is in days; step_period maps seconds to days
@@ -61,6 +62,23 @@ class Miao2010Adapter:
         # Set k_E to published rate constant (Miao 2010 Table 1) — stays fixed
         # T_E_T (CTL effector count) is updated dynamically via accept_issl()
         self._rr["k_E"] = _K_E_RATE_CONST
+
+        # Bounds runners for ci_95 propagation (lazy-initialised)
+        self._rr_lo: roadrunner.RoadRunner | None = None
+        self._rr_hi: roadrunner.RoadRunner | None = None
+        self._ctl_ci_95: list[float] | None = None  # [lo, hi] in CTL/mL
+
+    # ------------------------------------------------------------------
+    # Bounds runners for ci_95 propagation
+    # ------------------------------------------------------------------
+    def _ensure_bounds_runners(self) -> None:
+        """Lazy-init the lo/hi roadrunner instances for UQ propagation."""
+        if self._rr_lo is None:
+            self._rr_lo = roadrunner.RoadRunner(self._sbml_path)
+            self._rr_lo["k_E"] = _K_E_RATE_CONST
+        if self._rr_hi is None:
+            self._rr_hi = roadrunner.RoadRunner(self._sbml_path)
+            self._rr_hi["k_E"] = _K_E_RATE_CONST
 
     # ------------------------------------------------------------------
     # Internal step — delegates entirely to roadrunner / SBML
@@ -72,6 +90,13 @@ class Miao2010Adapter:
         t1 = t0 + dt_days
         # roadrunner simulate(start, end, num_points)
         self._rr.simulate(t0, t1, 2)
+
+        # If we have ci_95 bounds on the input, run lo/hi trajectories
+        if self._ctl_ci_95 is not None:
+            self._ensure_bounds_runners()
+            self._rr_lo.simulate(t0, t1, 2)
+            self._rr_hi.simulate(t0, t1, 2)
+
         self._sim_time_s += dt_s
 
     # ------------------------------------------------------------------
@@ -85,6 +110,25 @@ class Miao2010Adapter:
         total = ep + eps
         infected_fraction = eps / total if total > 0 else 0.0
 
+        # Compute ci_95 from bounds runners if available
+        ci_95_ep = ci_95_eps = ci_95_v = ci_95_frac = None
+        if self._rr_lo is not None and self._rr_hi is not None and self._ctl_ci_95 is not None:
+            ep_lo  = float(self._rr_lo["[s1]"])
+            eps_lo = float(self._rr_lo["[s2]"])
+            v_lo   = float(self._rr_lo["[s3]"])
+            ep_hi  = float(self._rr_hi["[s1]"])
+            eps_hi = float(self._rr_hi["[s2]"])
+            v_hi   = float(self._rr_hi["[s3]"])
+            # Sort bounds (more immune → less virus, so lo/hi may swap)
+            ci_95_ep  = [min(ep_lo, ep_hi), max(ep_lo, ep_hi)]
+            ci_95_eps = [min(eps_lo, eps_hi), max(eps_lo, eps_hi)]
+            ci_95_v   = [min(v_lo, v_hi), max(v_lo, v_hi)]
+            tot_lo = ep_lo + eps_lo
+            tot_hi = ep_hi + eps_hi
+            frac_lo = eps_lo / tot_lo if tot_lo > 0 else 0.0
+            frac_hi = eps_hi / tot_hi if tot_hi > 0 else 0.0
+            ci_95_frac = [min(frac_lo, frac_hi), max(frac_lo, frac_hi)]
+
         return {
             "envelope": {
                 "model_id": self.MODEL_ID,
@@ -94,9 +138,9 @@ class Miao2010Adapter:
                 "schema_uri": self.SCHEMA_URI,
             },
             "continuous_state": [
-                {"label": "Ep",  "count": ep,  "unit": "cells", "ci_95": None},
-                {"label": "Eps", "count": eps, "unit": "cells", "ci_95": None},
-                {"label": "V",   "count": v,   "unit": "copies/mL", "ci_95": None},
+                {"label": "Ep",  "count": ep,  "unit": "cells", "ci_95": ci_95_ep},
+                {"label": "Eps", "count": eps, "unit": "cells", "ci_95": ci_95_eps},
+                {"label": "V",   "count": v,   "unit": "copies/mL", "ci_95": ci_95_v},
             ],
             "export_signals": [
                 {
@@ -104,12 +148,16 @@ class Miao2010Adapter:
                     "label": "V",
                     "value": v,
                     "unit": "copies/mL",
+                    "ci_95": ci_95_v,
+                    "transfer_lag_s": None,
                 },
                 {
                     "signal_id": "miao2010.infected_fraction",
                     "label": "Eps_fraction",
                     "value": infected_fraction,
                     "unit": "dimensionless",
+                    "ci_95": ci_95_frac,
+                    "transfer_lag_s": None,
                 },
             ],
             "watchdog": {
@@ -131,15 +179,28 @@ class Miao2010Adapter:
           k_E  = rate constant (Miao 2010 Table 1, set at init, stays fixed)
           T_E_T = CTL effector count (cells/mL), updated here from Sego2020 signal
 
+        If the signal carries ci_95 bounds, they are propagated to the lo/hi
+        roadrunner instances for runtime UQ.
+
         Zero changes to BIOMD0000000546_model1.xml.
         """
         for sig in issl.get("export_signals", []):
             if sig["signal_id"] == "sego2020.immune_cell_count":
                 n_immune = float(sig["value"])
-                # Convert tissue immune agents → CTL/mL in Miao2010 compartment
                 ctl_per_ml = n_immune * _N_IMMUNE_TO_CTL_PER_ML
-                # roadrunner standard API — injects T_E_T into running SBML without reloading
                 self._rr["T_E_T"] = ctl_per_ml
+
+                # Propagate ci_95 bounds to lo/hi runners
+                ci_95 = sig.get("ci_95")
+                if ci_95 is not None and len(ci_95) == 2:
+                    ctl_lo = float(ci_95[0]) * _N_IMMUNE_TO_CTL_PER_ML
+                    ctl_hi = float(ci_95[1]) * _N_IMMUNE_TO_CTL_PER_ML
+                    self._ctl_ci_95 = [ctl_lo, ctl_hi]
+                    self._ensure_bounds_runners()
+                    self._rr_lo["T_E_T"] = ctl_lo
+                    self._rr_hi["T_E_T"] = ctl_hi
+                else:
+                    self._ctl_ci_95 = None
 
     # ------------------------------------------------------------------
     # Convenience: viral load as scalar (for orchestrator coupling)

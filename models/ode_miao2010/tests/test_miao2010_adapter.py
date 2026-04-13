@@ -331,3 +331,95 @@ class TestISSLStructure:
         assert 0.0 <= frac_sig["value"] <= 1.0, (
             f"infected_fraction = {frac_sig['value']} outside [0, 1]"
         )
+
+
+# -----------------------------------------------------------------------
+# 6. Runtime UQ propagation (ci_95)
+# -----------------------------------------------------------------------
+
+class TestUQPropagation:
+    """Verify that ci_95 bounds are propagated through the ODE when present."""
+
+    def test_ci95_null_without_bounds_input(self, model):
+        """Without ci_95 in accepted signal, emit should have ci_95=None."""
+        model.accept_issl({
+            "export_signals": [
+                {"signal_id": "sego2020.immune_cell_count", "value": 100}
+            ]
+        })
+        _advance_days(model, 1)
+        issl = model.emit_issl()
+        for cs in issl["continuous_state"]:
+            assert cs["ci_95"] is None, (
+                f"{cs['label']} has ci_95={cs['ci_95']} without bounds input"
+            )
+
+    def test_ci95_present_with_bounds_input(self, model):
+        """With ci_95 in accepted signal, emit must have non-null ci_95."""
+        model.accept_issl({
+            "export_signals": [
+                {
+                    "signal_id": "sego2020.immune_cell_count",
+                    "value": 100,
+                    "ci_95": [80, 120],
+                }
+            ]
+        })
+        _advance_days(model, 1)
+        issl = model.emit_issl()
+        for cs in issl["continuous_state"]:
+            assert cs["ci_95"] is not None, (
+                f"{cs['label']} has ci_95=None despite bounds input"
+            )
+            assert len(cs["ci_95"]) == 2
+            assert cs["ci_95"][0] <= cs["ci_95"][1]
+
+    def test_ci95_on_export_signals(self, model):
+        """Export signals must carry ci_95 when bounds are available."""
+        model.accept_issl({
+            "export_signals": [
+                {
+                    "signal_id": "sego2020.immune_cell_count",
+                    "value": 200,
+                    "ci_95": [150, 250],
+                }
+            ]
+        })
+        _advance_days(model, 1)
+        issl = model.emit_issl()
+        v_sig = next(s for s in issl["export_signals"]
+                     if s["signal_id"] == "miao2010.viral_load")
+        assert v_sig.get("ci_95") is not None
+        assert len(v_sig["ci_95"]) == 2
+
+    def test_more_immune_narrows_viral_ci95(self):
+        """Higher immune input with tight bounds → narrower V ci_95 than low immune with wide bounds."""
+        m1 = Miao2010Adapter()
+        m1.accept_issl({
+            "export_signals": [
+                {"signal_id": "sego2020.immune_cell_count",
+                 "value": 500, "ci_95": [490, 510]}
+            ]
+        })
+        _advance_days(m1, 3)
+        issl1 = m1.emit_issl()
+        v1 = next(s for s in issl1["export_signals"]
+                  if s["signal_id"] == "miao2010.viral_load")
+
+        m2 = Miao2010Adapter()
+        m2.accept_issl({
+            "export_signals": [
+                {"signal_id": "sego2020.immune_cell_count",
+                 "value": 500, "ci_95": [100, 900]}
+            ]
+        })
+        _advance_days(m2, 3)
+        issl2 = m2.emit_issl()
+        v2 = next(s for s in issl2["export_signals"]
+                  if s["signal_id"] == "miao2010.viral_load")
+
+        width1 = v1["ci_95"][1] - v1["ci_95"][0]
+        width2 = v2["ci_95"][1] - v2["ci_95"][0]
+        assert width1 < width2, (
+            f"Tight input bounds should give narrower V ci_95: {width1:.2e} vs {width2:.2e}"
+        )

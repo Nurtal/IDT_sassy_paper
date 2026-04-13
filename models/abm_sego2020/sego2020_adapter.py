@@ -261,12 +261,14 @@ class Sego2020Adapter:
                     "label":     "n_immune",
                     "value":     float(self._n_immune),
                     "unit":      "cells",
+                    "transfer_lag_s": None,
                 },
                 {
                     "signal_id": "sego2020.recruitment_cytokine",
                     "label":     "totalCytokine_proxy",
                     "value":     self._total_virus,
                     "unit":      "AU",
+                    "transfer_lag_s": None,
                 },
             ],
             "watchdog": {
@@ -303,3 +305,91 @@ class Sego2020Adapter:
     @property
     def n_immune(self) -> int:
         return self._n_immune
+
+
+# ---------------------------------------------------------------------------
+# Ensemble wrapper for runtime UQ
+# ---------------------------------------------------------------------------
+
+class Sego2020Ensemble:
+    """
+    Manages N parallel Sego2020Adapter instances for runtime UQ.
+
+    At each tick, all N instances are stepped; their emitted ISSL records
+    are aggregated to produce median values with empirical 95% confidence
+    intervals (ci_95 = [p2.5, p97.5]).
+
+    Exposes the same interface as Sego2020Adapter so the orchestrator can
+    use it as a drop-in replacement.
+    """
+
+    def __init__(self, n_instances: int = 5, ipc_base: Optional[Path] = None):
+        import numpy as np  # noqa: F811 — lazy import to avoid top-level dependency
+        self._np = np
+        self._n = n_instances
+        base = Path(ipc_base) if ipc_base else _IPC_DIR
+        self._adapters = [
+            Sego2020Adapter(ipc_dir=base / f"inst_{i}")
+            for i in range(n_instances)
+        ]
+        self._last_issl: Optional[dict] = None
+
+    # -- OISA interface (same as Sego2020Adapter) --------------------------
+
+    def _step(self, dt_s: float) -> None:
+        """Step all N instances."""
+        for a in self._adapters:
+            a._step(dt_s)
+
+    def emit_issl(self) -> dict:
+        """Aggregate N ISSL records: median + ci_95 percentiles."""
+        issls = [a.emit_issl() for a in self._adapters]
+        if not issls:
+            return self._adapters[0].emit_issl()
+
+        np = self._np
+        base = issls[0]  # use first as template
+
+        # Aggregate continuous_state
+        for i, cs in enumerate(base.get("continuous_state", [])):
+            values = [issl["continuous_state"][i]["count"] for issl in issls]
+            median = float(np.median(values))
+            lo, hi = np.percentile(values, [2.5, 97.5]).tolist()
+            cs["count"] = median
+            cs["ci_95"] = [lo, hi]
+
+        # Aggregate export_signals
+        for i, sig in enumerate(base.get("export_signals", [])):
+            values = [issl["export_signals"][i]["value"] for issl in issls]
+            median = float(np.median(values))
+            lo, hi = np.percentile(values, [2.5, 97.5]).tolist()
+            sig["value"] = median
+            sig["ci_95"] = [lo, hi]
+
+        self._last_issl = base
+        return base
+
+    def accept_issl(self, issl: dict) -> None:
+        """Broadcast ODE signal to all N instances."""
+        for a in self._adapters:
+            a.accept_issl(issl)
+
+    def close(self) -> None:
+        """Close all N instances."""
+        for a in self._adapters:
+            a.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
+    @property
+    def n_immune(self) -> int:
+        """Median n_immune across instances (from last emit_issl)."""
+        if self._last_issl:
+            for cs in self._last_issl.get("continuous_state", []):
+                if cs["label"] == "n_immune":
+                    return int(cs["count"])
+        return 0
