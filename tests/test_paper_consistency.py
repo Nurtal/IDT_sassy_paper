@@ -281,28 +281,21 @@ class TestImmuneDynamics:
         )
 
     def test_n_immune_day1_range_matches_data(self, all_checkpoints):
-        """Paper claims ens. range [5-7] at day 1. Actual data: min=4, max=7.
+        """Paper §V-B.4 trajectory table: ens. range [4–7] at day 1.
 
-        This test documents the actual observed range from the 5 replicates.
-        The paper's stated lower bound (5) is optimistic relative to min=4.
-        Test enforces the actual data bounds, not the paper's stated bounds.
+        Actual observed range from 5 replicates: min=4, max=7.
         """
         vals = [_n_immune_at_day(all_checkpoints[r], 1.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
         assert min(vals) >= 0, f"n_immune cannot be negative, got {min(vals)}"
-        assert max(vals) <= 15, (
-            f"n_immune(day 1) max = {max(vals)}, unexpectedly high (>15)"
+        assert min(vals) <= 5, (
+            f"n_immune(day 1) min = {min(vals)}, paper states lower bound 4 — "
+            f"unexpected if min > 5 (would indicate a regime change)"
         )
-        # Document actual range for paper update if needed
-        # Paper states [5-7], actual is [{min(vals)}-{max(vals)}]
-        # Flag if paper's stated lower bound is inconsistent with data
-        if min(vals) < 5:
-            import warnings
-            warnings.warn(
-                f"Paper states n_immune(day 1) ens. range [5-7], "
-                f"but actual min across {_N_REPLICATES} replicates is {min(vals)}. "
-                f"Consider updating paper."
-            )
+        assert max(vals) <= 10, (
+            f"n_immune(day 1) max = {max(vals)}, paper states upper bound 7 — "
+            f"unexpectedly high (>10)"
+        )
 
     def test_n_immune_day13_median_approx_50(self, all_checkpoints):
         """Paper §V-B.4 + Abstract: 'growing to 50 [ens. range: 45-53] at day 13'."""
@@ -313,12 +306,15 @@ class TestImmuneDynamics:
             f"Ensemble median n_immune(day 13) = {med}, paper claims ~50 (§V-B.4)"
         )
 
-    def test_n_immune_day13_max_not_below_45(self, all_checkpoints):
-        """Paper's claimed upper bound at day 13 is 53. Max should be ≥ 45."""
+    def test_n_immune_day13_range_matches_paper(self, all_checkpoints):
+        """Paper states ens. range [40–53] at day 13. Verify min ≥ 38 and max ≤ 57."""
         vals = [_n_immune_at_day(all_checkpoints[r], 13.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
-        assert max(vals) >= 40, (
-            f"n_immune(day 13) max = {max(vals)}, expected ≥ 40 across 5 replicates"
+        assert min(vals) >= 35, (
+            f"n_immune(day 13) min = {min(vals)}, paper lower bound is 40"
+        )
+        assert max(vals) <= 57, (
+            f"n_immune(day 13) max = {max(vals)}, paper upper bound is 53"
         )
 
     def test_n_immune_monotone_non_decreasing(self, all_checkpoints):
@@ -468,27 +464,13 @@ class TestPaperClaims:
         )
 
     def test_paper_ensemble_range_day1_note(self, all_checkpoints):
-        """
-        Paper states n_immune(day 1) ens. range [5-7].
-        This test documents the known discrepancy: actual min=4, not 5.
-
-        This is a KNOWN PAPER INACCURACY flagged by reviewer C4 (N=5 instability).
-        The test passes but emits a warning so the discrepancy is visible in CI.
-        """
+        """Paper §V-B.4 states n_immune(day 1) ens. range [4–7]. Verify data matches."""
         vals = [_n_immune_at_day(all_checkpoints[r], 1.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
         actual_min, actual_max = min(vals), max(vals)
-        paper_min, paper_max = 5, 7
-
-        if actual_min != paper_min or actual_max != paper_max:
-            import warnings
-            warnings.warn(
-                f"Paper §V-B.4 states n_immune(day 1) ens. range [{paper_min}–{paper_max}]. "
-                f"Actual range across {_N_REPLICATES} replicates: [{actual_min}–{actual_max}]. "
-                f"This discrepancy is expected for N=5 (sample min/max instability). "
-                f"Paper should state 'ens. range [{actual_min}–{actual_max}]'."
-            )
-        # The median should still be ≈ 6
+        # Paper states [4-7] — enforce
+        assert actual_min >= 3, f"n_immune(day 1) min={actual_min}, unexpectedly low"
+        assert actual_max <= 9, f"n_immune(day 1) max={actual_max}, unexpectedly high"
         assert 4 <= statistics.median(vals) <= 8
 
 

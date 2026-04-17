@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/issl_v1.schema.json",
+  "title": "Internal Simulation State Log (ISSL) v1",
+  "description": "Formalism-agnostic JSON-LD checkpoint format emitted by OISA-compliant models at each GSimT checkpoint. Section inventory follows the OISA paper (IEEE BIBM 2026), Table II.",
+  "type": "object",
+  "required": ["envelope"],
+  "additionalProperties": true,
+  "properties": {
+    "@context": {
+      "description": "JSON-LD context. Optional for schema validation but required for semantic annotation.",
+      "type": ["object", "string", "array"]
+    },
+    "envelope": {
+      "type": "object",
+      "required": ["model_id", "model_version", "sim_time_s", "formalism", "schema_uri"],
+      "additionalProperties": true,
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "description": "Stable identifier for the model node (e.g. 'miao2010_ode')."
+        },
+        "model_version": {
+          "type": "string",
+          "description": "Traceable, immutable model-artefact identifier. Examples: 'BIOMD0000000546' (BioModels accession) or 'github:covid-tissue-models@5b7e42c+OISA_bridge' (commit-pinned fork)."
+        },
+        "sim_time_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Simulation time (seconds) AFTER the step completes — i.e. the clock value at which the emitted state is valid."
+        },
+        "formalism": {
+          "type": "string",
+          "enum": ["ODE", "ABM", "PDE", "NEURAL_SURROGATE", "HYBRID"],
+          "description": "Formalism tag. Orchestrator components read this before processing outputs."
+        },
+        "schema_uri": {
+          "type": "string",
+          "description": "URI of this ISSL schema (relative or absolute). Used by the orchestrator ISSL-ingestion component."
+        },
+        "agent_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Optional — ABM-only: total live agent count at checkpoint."
+        },
+        "grid": {
+          "type": "string",
+          "description": "Optional — ABM-only: spatial grid descriptor (e.g. '90x90x2')."
+        }
+      }
+    },
+    "continuous_state": {
+      "type": "array",
+      "description": "Running entity populations. Counts are biologically scaled (independent of source formalism).",
+      "items": {
+        "type": "object",
+        "required": ["label", "count", "unit"],
+        "additionalProperties": true,
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Model-local variable name."
+          },
+          "count": {
+            "type": "number",
+            "description": "Biologically scaled value in the declared unit."
+          },
+          "unit": {
+            "type": "string",
+            "description": "SI or domain unit string (e.g. 'cells', 'copies/mL', 'AU*voxel')."
+          },
+          "ci_95": {
+            "type": "array",
+            "description": "Uncertainty bounds: [lower, upper]. For stochastic models with ensemble size N, with N < 20 these correspond to sample min/max (ensemble range), not stable 2.5/97.5-percentile estimates — see paper §V-A.",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {"type": "number"}
+          }
+        }
+      }
+    },
+    "discrete_events": {
+      "type": "array",
+      "description": "Punctual events (cell death, cytokine peaks, etc.).",
+      "items": {
+        "type": "object",
+        "required": ["event_type", "sim_time_s"],
+        "additionalProperties": true,
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "description": "Term from a controlled vocabulary (e.g. OBO) or a wildcard_namespace prefix."
+          },
+          "sim_time_s": {"type": "number", "minimum": 0},
+          "n_realisations": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "ABM-only: number of independent realisations producing this event in the current tick."
+          },
+          "payload": {"type": "object"}
+        }
+      }
+    },
+    "export_signals": {
+      "type": "array",
+      "description": "Inter-compartmental signals available for routing to other models. 'signal_id' is the orchestrator's routing key.",
+      "items": {
+        "type": "object",
+        "required": ["signal_id", "value", "unit"],
+        "additionalProperties": true,
+        "properties": {
+          "signal_id": {"type": "string"},
+          "label": {"type": "string"},
+          "value": {"type": "number"},
+          "unit": {"type": "string"},
+          "ci_95": {
+            "type": "array",
+            "description": "See continuous_state.ci_95.",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {"type": "number"}
+          },
+          "transfer_lag_s": {
+            "type": ["number", "null"],
+            "description": "Optional per-signal delay (seconds). When non-null the orchestrator's SignalQueue defers injection until the specified delay elapses. A lightweight transfer model on the edge may compute this dynamically; otherwise a constant is declared in the configuration graph."
+          }
+        }
+      }
+    },
+    "internal_parameters": {
+      "type": "array",
+      "description": "Kinetic / model parameter values with provenance.",
+      "items": {
+        "type": "object",
+        "required": ["name", "value"],
+        "additionalProperties": true,
+        "properties": {
+          "name": {"type": "string"},
+          "value": {"type": ["number", "string", "boolean"]},
+          "unit": {"type": "string"},
+          "provenance": {
+            "type": "string",
+            "description": "DOI or database URI linking to the calibration source (e.g. a PROV-O URI or a BioModels accession)."
+          }
+        }
+      }
+    },
+    "watchdog": {
+      "type": "object",
+      "description": "Model health signal consumed by the orchestrator's watchdog monitor.",
+      "required": ["status"],
+      "additionalProperties": true,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["OK", "WARN", "PAUSE", "ROLLBACK"]
+        },
+        "divergence_score": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Orchestrator pauses the model when divergence_score > 0.15."
+        },
+        "next_checkpoint_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Simulation-time of the next scheduled checkpoint."
+        }
+      }
+    }
+  }
+}
