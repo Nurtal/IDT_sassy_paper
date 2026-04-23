@@ -38,7 +38,7 @@ _ABM_ADAPTER  = _ROOT / "models" / "abm_sego2020" / "sego2020_adapter.py"
 _BRIDGE       = _ROOT / "models" / "abm_sego2020" / "oisa_bridge_steppable.py"
 _SBML_PATH    = _ROOT / "models" / "ode_miao2010" / "BIOMD0000000546_model1.xml"
 
-_REPLICATES   = ["r01", "r02", "r03", "r04", "r05"]
+_REPLICATES   = [f"r{i:02d}" for i in range(1, 21)]
 _N_REPLICATES = len(_REPLICATES)
 
 
@@ -219,7 +219,7 @@ class TestViralKinetics:
             )
 
     def test_viral_clearance_below_0_1_percent_of_peak(self, all_checkpoints):
-        """Paper §V-B.4: 'clearance to < 0.1% of peak by day 13.75' for all 5 replicates."""
+        """Paper §V-B.4: 'clearance to < 0.1% of peak by day 13.75' for all 20 replicates."""
         for r, cps in all_checkpoints.items():
             vs = _viral_series(cps)
             peak_v = max(v for _, v in vs)
@@ -281,40 +281,35 @@ class TestImmuneDynamics:
         )
 
     def test_n_immune_day1_range_matches_data(self, all_checkpoints):
-        """Paper §V-B.4 trajectory table: ens. range [4–7] at day 1.
-
-        Actual observed range from 5 replicates: min=4, max=7.
-        """
+        """Paper §V-B.4 trajectory table: ens. range [2–10] at day 1 (N=20)."""
         vals = [_n_immune_at_day(all_checkpoints[r], 1.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
         assert min(vals) >= 0, f"n_immune cannot be negative, got {min(vals)}"
-        assert min(vals) <= 5, (
-            f"n_immune(day 1) min = {min(vals)}, paper states lower bound 4 — "
-            f"unexpected if min > 5 (would indicate a regime change)"
+        assert min(vals) <= 3, (
+            f"n_immune(day 1) min = {min(vals)}, paper states lower bound 2"
         )
-        assert max(vals) <= 10, (
-            f"n_immune(day 1) max = {max(vals)}, paper states upper bound 7 — "
-            f"unexpectedly high (>10)"
+        assert max(vals) <= 12, (
+            f"n_immune(day 1) max = {max(vals)}, paper states upper bound 10"
         )
 
-    def test_n_immune_day13_median_approx_50(self, all_checkpoints):
-        """Paper §V-B.4 + Abstract: 'growing to 50 [ens. range: 45-53] at day 13'."""
+    def test_n_immune_day13_median_approx_57(self, all_checkpoints):
+        """Paper §V-B.4 + Abstract: 'growing to 57 [ens. range: 41-64] at day 13' (N=20)."""
         vals = [_n_immune_at_day(all_checkpoints[r], 13.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
         med = statistics.median(vals)
-        assert 40 <= med <= 60, (
-            f"Ensemble median n_immune(day 13) = {med}, paper claims ~50 (§V-B.4)"
+        assert 50 <= med <= 64, (
+            f"Ensemble median n_immune(day 13) = {med}, paper claims ~57 (§V-B.4)"
         )
 
     def test_n_immune_day13_range_matches_paper(self, all_checkpoints):
-        """Paper states ens. range [40–53] at day 13. Verify min ≥ 38 and max ≤ 57."""
+        """Paper states ens. range [41–64] at day 13 (N=20)."""
         vals = [_n_immune_at_day(all_checkpoints[r], 13.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
-        assert min(vals) >= 35, (
-            f"n_immune(day 13) min = {min(vals)}, paper lower bound is 40"
+        assert min(vals) >= 38, (
+            f"n_immune(day 13) min = {min(vals)}, paper lower bound is 41"
         )
-        assert max(vals) <= 57, (
-            f"n_immune(day 13) max = {max(vals)}, paper upper bound is 53"
+        assert max(vals) <= 70, (
+            f"n_immune(day 13) max = {max(vals)}, paper upper bound is 64"
         )
 
     def test_n_immune_monotone_non_decreasing(self, all_checkpoints):
@@ -389,10 +384,10 @@ class TestPaperClaims:
             "Paper should mention '56 checkpoints'"
         )
 
-    def test_paper_claims_n5_ensemble(self):
-        """Paper must state N = 5 ensemble instances."""
+    def test_paper_claims_n20_ensemble(self):
+        """Paper must state N = 20 ensemble instances."""
         text = _paper_text()
-        assert "N = 5" in text, "Paper should state 'N = 5' ensemble size"
+        assert "N = 20" in text, "Paper should state 'N = 20' ensemble size"
 
     def test_paper_claims_zero_lines_modified(self):
         """Paper Table V: '0' lines modified for both models."""
@@ -426,7 +421,7 @@ class TestPaperClaims:
     def test_paper_peak_V_matches_data(self, all_checkpoints):
         """Paper states 'peak V = 9.0×10⁶ copies/mL at day 2.25'.
 
-        Cross-check: the actual median peak across 5 replicates should agree
+        Cross-check: the actual median peak across 20 replicates should agree
         with the paper's stated value to within 10%.
         """
         peaks = []
@@ -452,26 +447,21 @@ class TestPaperClaims:
             )
 
     def test_paper_ensemble_range_day13_upper_bound(self, all_checkpoints):
-        """Paper claims n_immune day 13 ens. range upper bound 53.
-
-        The actual max across 5 replicates is 53 — test that it does not
-        exceed 60 (would indicate a regime change).
-        """
+        """Paper claims n_immune day 13 ens. range upper bound 64 (N=20)."""
         vals = [_n_immune_at_day(all_checkpoints[r], 13.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
-        assert max(vals) <= 60, (
-            f"n_immune(day 13) max = {max(vals)}, unexpectedly high (paper claims max 53)"
+        assert max(vals) <= 70, (
+            f"n_immune(day 13) max = {max(vals)}, unexpectedly high (paper claims max 64)"
         )
 
     def test_paper_ensemble_range_day1_note(self, all_checkpoints):
-        """Paper §V-B.4 states n_immune(day 1) ens. range [4–7]. Verify data matches."""
+        """Paper §V-B.4 states n_immune(day 1) ens. range [2–10] (N=20)."""
         vals = [_n_immune_at_day(all_checkpoints[r], 1.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
         actual_min, actual_max = min(vals), max(vals)
-        # Paper states [4-7] — enforce
-        assert actual_min >= 3, f"n_immune(day 1) min={actual_min}, unexpectedly low"
-        assert actual_max <= 9, f"n_immune(day 1) max={actual_max}, unexpectedly high"
-        assert 4 <= statistics.median(vals) <= 8
+        assert actual_min >= 1, f"n_immune(day 1) min={actual_min}, unexpectedly low"
+        assert actual_max <= 12, f"n_immune(day 1) max={actual_max}, unexpectedly high"
+        assert 4 <= statistics.median(vals) <= 9
 
 
 # ===========================================================================
@@ -664,10 +654,14 @@ class TestPaperStructure:
         )
 
     def test_ensemble_range_qualifier_present(self):
-        """C4 fix: paper must use 'ensemble range' or 'ens. range' (not bare ci_95 claim)."""
+        """Paper must use 'ensemble range', 'ens. range', or percentile language."""
         text = _paper_text()
-        assert "ensemble range" in text or "ens. range" in text, (
-            "Paper must qualify N=5 bounds as 'ensemble range' (not bare ci_95)"
+        assert (
+            "ensemble range" in text
+            or "ens. range" in text
+            or "percentile" in text.lower()
+        ), (
+            "Paper must qualify N=20 bounds as 'ensemble range' or percentile"
         )
 
     def test_sensitivity_section_V_B_5_present(self):

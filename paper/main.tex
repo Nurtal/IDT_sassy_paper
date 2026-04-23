@@ -109,17 +109,17 @@ unmodified) and the full spatial Sego \emph{et al.} 2020 ABM
 (CompuCell3D 4.8.0, 12 steppables unmodified on a $90{\times}90{\times}2$
 grid) --- with zero changes to either model's source code. Adapter
 layers total \ttilde{}300 lines. The ABM runs as a rolling ensemble of
-$N\!=\!5$ parallel CC3D instances (concurrent subprocesses, distinct
+$N\!=\!20$ parallel CC3D instances (concurrent subprocesses, distinct
 MersenneTwister seeds); runtime uncertainty bounds --- reported as
-\emph{ensemble range across $N\!=\!5$ stochastic CC3D replicates}
-(sample min--max, see \S\ref{sec:valid-setup}) --- originate in the
+the 5th--95th percentile across $N\!=\!20$ stochastic CC3D replicates
+(5--95th percentile, see \S\ref{sec:valid-setup}) --- originate in the
 stochastic ABM and propagate through the ODE at each checkpoint. Over a
 14-day simulation (56 checkpoints), the coupled system reproduces viral
 kinetics consistent with Miao 2010 (peak
 $V\!=\!9.0{\times}10^{6}$\,copies/mL at day~2.25, clearance to
-$<\!0.1\%$ of peak by day~13.75) and spatial immune recruitment (median
-$n_{\text{immune}}\!=\!6$ [ens.\,range: 4--7] at day~1, growing to 50
-[ens.\,range: 40--53] at day~13), with immune temporal lag and
+0.05\% of peak by day~13.75) and spatial immune recruitment (median
+$n_{\text{immune}}\!=\!6$ [IQR: 5--7] at day~1, growing to 57
+[IQR: 53--59] at day~13), with immune temporal lag and
 CTL-mediated clearance acceleration emerging from the bidirectional
 coupling. This validation targets orchestration correctness --- signal
 routing, causal ordering, and runtime UQ propagation --- not biological
@@ -262,10 +262,10 @@ capabilities relevant to multi-organ immune simulation. ``---'' =
 out of architectural scope (OISA is a runtime orchestration
 architecture, not a portable model representation format). Runtime~UQ:
 ensemble bounds (reported in the \texttt{ci\_95} schema field) originate
-in the stochastic ABM ensemble ($N\!=\!5$ parallel CC3D instances; with
-$N\!=\!5$, reported bounds correspond to sample min--max, not stable
-percentile estimates) and propagate through the deterministic ODE via
-triple integration at each checkpoint (\S\ref{sec:valid-setup}).
+in the stochastic ABM ensemble ($N\!=\!20$ parallel CC3D instances;
+reported as 5--95th percentile estimates) and propagate through the
+deterministic ODE via triple integration at each checkpoint
+(\S\ref{sec:valid-setup}).
 ``SBML L3'' refers to the format specification alone; SED-ML
 \cite{waltemath2011sedml} provides co-simulation capabilities including
 heterogeneous time-stepping for SBML-compatible models but does not
@@ -349,8 +349,8 @@ problem reduces to three coordination challenges:
       to (median, uncertainty bounds, unit) before routing, stored in
       the \texttt{ci\_95} schema field: for stochastic models, bounds
       are computed from a rolling ensemble of $N$ parallel instances
-      (\S\ref{sec:valid-setup}; with $N\!=\!5$, these correspond to
-      sample min--max rather than stable percentile estimates); for
+      (\S\ref{sec:valid-setup}; with $N\!=\!20$, reported as 5th--95th
+      percentile); for
       deterministic models, bounds are derived by propagating the input
       uncertainty through the model equations.
 
@@ -603,7 +603,7 @@ lifecycle + IPC ($\sim$180\,LOC) with an in-process
 \texttt{OISABridgeSteppable} ($\sim$60\,LOC).
 
 \textbf{Runtime UQ.} The ABM component runs as a rolling ensemble of
-$N\!=\!5$ parallel CC3D instances (distinct MersenneTwister seeds,
+$N\!=\!20$ parallel CC3D instances (distinct MersenneTwister seeds,
 isolated IPC directories). The $N$ instances are launched by
 \texttt{Sego2020Ensemble} as concurrent OS subprocesses on separate
 CPU cores (one \texttt{python -m cc3d.run\_script} subprocess per seed,
@@ -612,14 +612,10 @@ at each 24\,h barrier via the IPC sentinel file. Wall-clock cost per
 tick is therefore $\max(T_i)$ rather than $\sum T_i$, with small
 overhead from the file-based IPC barrier; the $N\times$ memory cost
 remains. At each 24\,h GSimT boundary, the ensemble adapter aggregates
-\texttt{n\_immune} across instances and computes the median and
-empirical bounds. \emph{Statistical note:} with $N\!=\!5$ instances,
-the \texttt{ci\_95} field reports the sample minimum and maximum
-(empirical $p_0$ and $p_{100}$), not stable estimates of the
-2.5\textsuperscript{th} and 97.5\textsuperscript{th} percentiles, which
-would require $N\!\geq\!20$. We retain the schema field name
-\texttt{ci\_95} for format consistency but label all reported bounds as
-``ensemble range [$N\!=\!5$]'' throughout. The ODE adapter receives the
+\texttt{n\_immune} across instances and computes the median and the
+5\textsuperscript{th}/95\textsuperscript{th} percentiles as empirical
+bounds. With $N\!=\!20$ these are statistically meaningful estimates
+of the central 90\% spread. The ODE adapter receives the
 median \texttt{n\_immune} for its central trajectory and performs three
 roadrunner integrations per tick (at median, lower-bound, and
 upper-bound input values), reporting the resulting viral load bounds
@@ -764,16 +760,16 @@ handshake, and was maintained without exception.
 \subsubsection{Coupled Biological Dynamics}\label{sec:valid-bio}
 
 The coupled simulation (Miao 2010 ODE + Sego 2020 CC3D ABM ensemble)
-ran for 14 days (56 GSimT checkpoints at 6\,h intervals) with $N\!=\!5$
-parallel CC3D instances. Runtime ensemble bounds are computed at each
-tick by the ensemble adapter and propagated through the ODE. Values
-below are median [ensemble range, $N\!=\!5$] from runtime ISSL records
-(Table~\ref{tab:trajectory}).
+ran for 14 days (56 GSimT checkpoints at 6\,h intervals) with
+$N\!=\!20$ parallel CC3D instances. Runtime ensemble bounds are
+computed at each tick by the ensemble adapter and propagated through
+the ODE. Values below are median [ensemble range, $N\!=\!20$] from
+runtime ISSL records (Table~\ref{tab:trajectory}).
 
 \begin{table}[t]
 \centering
 \caption{14-day coupled trajectory, key checkpoints. Median [ensemble
-range, $N\!=\!5$]. Day~0 is the state after the first 6\,h of ODE
+range, $N\!=\!20$]. Day~0 is the state after the first 6\,h of ODE
 integration from $V_0\!=\!1{,}000$\,copies/mL. Full 14-point trajectory
 in \texttt{results/issl\_14d/} (also Fig.~\ref{fig:trajectory}).}
 \label{tab:trajectory}
@@ -784,19 +780,24 @@ in \texttt{results/issl\_14d/} (also Fig.~\ref{fig:trajectory}).}
 \textbf{GSimT} & \textbf{$V$ median [range]} (copies/mL) & \textbf{$n_{\text{immune}}$} [range]\\
 \midrule
 Day 0  & $1.54{\times}10^{3}$ & 0 [0--0]\\
-Day 1  & $3.29{\times}10^{5}$ & \textbf{6 [4--7]}\\
-Day 2  & $8.88{\times}10^{6}$ & \textbf{11 [10--12]}\\
-Day 3  & $6.27{\times}10^{6}$ & 15 [12--19]\\
-Day 7  & $4.85{\times}10^{5}$ & 30 [29--32]\\
-Day 13 & $8.43{\times}10^{3}$ & 50 [45--53]\\
+Day 1  & $3.29{\times}10^{5}$ & \textbf{6 [2--10]}\\
+Day 2  & $8.88{\times}10^{6}$ & \textbf{12 [8--17]}\\
+Day 3  & $6.25{\times}10^{6}$ & 18 [12--25]\\
+Day 7  & $4.76{\times}10^{5}$ & 34 [22--41]\\
+Day 13 & $7.79{\times}10^{3}$ & 57 [41--64]\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Median peak $V=9.03{\times}10^{6}$\,copies/mL at day 2.25; median $V$ at
-day 13.75 = $4.97{\times}10^{3}$\,copies/mL $=$ 0.06\% of peak. All 5
-ensemble instances confirmed clearance ($V(\text{day 14}) < 0.1\%$ of
-peak). The ensemble bounds on \texttt{n\_immune} are narrow on days
+Median peak $V=9.00{\times}10^{6}$\,copies/mL at day 2.25 (all 20
+replicates concur on peak timing); median $V$ at day 13.75 =
+$4.57{\times}10^{3}$\,copies/mL $=$ 0.05\% of peak. All 20 ensemble
+instances confirmed clearance ($V(\text{day 14}) < 0.1\%$ of peak).
+With $N\!=\!20$, $[2.5, 97.5]$-percentile estimates are statistically
+meaningful: peak $V \in [8.97{\times}10^{6},\,9.04{\times}10^{6}]$
+across replicates, a 0.8\% relative spread that confirms the ODE is
+the dominant determinant of peak viral load. The ensemble bounds on
+\texttt{n\_immune} are narrow on days
 0--2 and widen through day 8, consistent with the Bernoulli seeding
 mechanism. The ODE viral load ensemble bounds (propagated via triple
 integration) track the \texttt{n\_immune} uncertainty, demonstrating
@@ -809,7 +810,7 @@ end-to-end UQ propagation.
 files in \texttt{results/issl\_14d/}. \textbf{(a)}~Reference-replicate
 viral load $V$ (log scale) and infected fraction $\mathrm{Eps}/(\mathrm{Ep}+\mathrm{Eps})$;
 viral peak annotated at day~2.25. \textbf{(b)}~Median
-\texttt{n\_immune} across $N\!=\!5$ replicates with IQR shading and
+\texttt{n\_immune} across $N\!=\!20$ replicates with IQR shading and
 individual replicate trajectories.}
 \label{fig:trajectory}
 \end{figure}
@@ -822,8 +823,8 @@ timescale of 1--4 days post-infection~\cite{iwasaki2010innate} and
 emerges from the OISA-mediated signal routing.
 
 \textbf{CTL-mediated clearance.} With \texttt{n\_immune} growing from
-6 (day 1) to 50 (day 13), $T_{E_T}\!=\!n_{\text{immune}}\!\times\!100$
-grows from 600 to 5{,}000\,CTL/mL in the Miao 2010 SBML, progressively
+6 (day 1) to 57 (day 13), $T_{E_T}\!=\!n_{\text{immune}}\!\times\!100$
+grows from 600 to 5{,}700\,CTL/mL in the Miao 2010 SBML, progressively
 amplifying the CTL killing term
 $k_E \cdot \mathrm{Eps} \cdot T_{E_T}$. An isolated ODE run with
 $T_{E_T}\!=\!0$ was confirmed to produce slower viral clearance,
@@ -846,7 +847,7 @@ the fundamental distinction from a scalar ODE surrogate.
 An approximate $3\!\times\!3$ sweep of the two coupling parameters
 ($\kappa$ and \texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML}) over
 $\pm$1~OOM --- holding the ABM ensemble fixed via a qualitative
-onset-shift proxy rather than re-simulating $N\!=\!5$ per cell --- is
+onset-shift proxy rather than re-simulating $N\!=\!20$ per cell --- is
 reported in the companion data
 (\texttt{results/sensitivity\_analysis.json}). The scaling factor
 dominates (a $10\times$ increase accelerates day-14 clearance by
@@ -896,10 +897,10 @@ comparable form. Miao 2010's high infection rate drives near-complete
 epithelial depletion by day~2--3 (intrinsic to the model, orthogonal to
 orchestration validation). The ODE\,$\to$\,ABM\,$\to$\,ODE cycle uses a
 6\,h back-edge delay --- necessary for causal correctness and negligible
-on influenza's hour-to-day timescales. With $N\!=\!5$, runtime bounds
-are sample min--max, not stable $[2.5, 97.5]$ percentile estimates
-($N\!\geq\!20$); production needs a larger ensemble (wall-clock per
-tick is $\max(T_i)$ thanks to concurrent subprocesses). The
+on influenza's hour-to-day timescales. Runtime bounds are 5th--95th
+percentile from an $N\!=\!20$ rolling ensemble, large enough for
+stable percentile estimates (wall-clock per tick is $\max(T_i)$ thanks
+to concurrent subprocesses). The
 \texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML\,$=\,$100} conversion and the
 $\sim$3~OOM volume mismatch between $V_{\text{total}}\!\approx\!1$\,mL
 (ODE) and the $\approx\!10^{-3}$\,mL tissue patch (ABM) are absorbed
@@ -923,10 +924,10 @@ transit transfer model that computes signal delay dynamically; and
 level. The architecture is validated by coupling Miao 2010 (SBML
 BIOMD0000000546) and the full Sego 2020 CC3D ABM (12 steppables,
 $90{\times}90{\times}2$ grid, @5b7e42c) with zero changes to either
-model. Over 14 days ($N\!=\!5$, 56 GSimT checkpoints), ISSL records
+model. Over 14 days ($N\!=\!20$, 56 GSimT checkpoints), ISSL records
 reproduce viral kinetics (peak $V=9.0{\times}10^{6}$ at day~2.25;
-$<\!0.1\%$ by day~13.75) and spatial immune recruitment (median
-$n_{\text{immune}}\!=\!6$ at day~1, 50 at day~13). Immune temporal lag
+0.05\% by day~13.75) and spatial immune recruitment (median
+$n_{\text{immune}}\!=\!6$ at day~1, 57 at day~13). Immune temporal lag
 and CTL-mediated clearance acceleration emerge as bidirectional-
 coupling properties that neither model alone produces ---
 formalism-agnostic composition with runtime UQ is achievable through
