@@ -1,377 +1,405 @@
 """
 Generate the OISA coupling workflow figure for the IEEE BIBM 2026 paper.
 
-Figure layout:
-  - Top panel  : Architecture diagram (two models + orchestrator + ISSL signals)
-  - Bottom panel: GSimT timeline showing multi-rate scheduling (ODE=6h, ABM=24h)
+Panel (a) — Architecture: three horizontally aligned boxes of equal height
+            (ODE | Orchestrator | ABM). Forward ISSL signals flow in a
+            clean upper corridor (ODE → Orch → ABM). Return ISSL signals
+            flow in a clean lower corridor (ABM → Orch → ODE). No arrow
+            crosses box interiors; all labels sit in the gap corridors.
 
-Output: figures/oisa_workflow.pdf  +  figures/oisa_workflow.png
+Panel (b) — GSimT multi-rate timeline: ODE ticks every 6 h (upward lines),
+            ABM ticks every 24 h (downward triangles), ISSL checkpoint
+            markers on the main axis at every ODE tick.
+
+Design targets:
+  - Readable at IEEE 2-column full-page width (~7 in typeset).
+  - No overlapping glyphs. No text clipped by arrows.
+  - Parameter detail lives in paper tables, not in the figure; the boxes
+    show only the information required to interpret the signal flow.
 """
+
+from __future__ import annotations
+
+import pathlib
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
-import matplotlib.patheffects as pe
-import numpy as np
 
-# ── Colour palette ──────────────────────────────────────────────────────────
-C_ODE        = "#2166ac"   # blue   — Miao2010 ODE
-C_ABM        = "#1a9641"   # green  — Sego2020 ABM
-C_ORCH       = "#4d4d4d"   # dark grey — orchestrator
-C_ISSL       = "#d6604d"   # red-orange — ISSL signals
-C_ISSL_BACK  = "#f4a582"   # light orange — reverse signal
-C_SOURCE     = "#762a83"   # purple — external source badges
-C_TIMELINE   = "#636363"
-C_BG_ODE     = "#deebf7"
-C_BG_ABM     = "#e5f5e0"
-C_BG_ORCH    = "#f0f0f0"
+# ── Palette (ColorBrewer-derived, colour-blind safe) ────────────────────────
+C_ODE       = "#2166ac"
+C_ABM       = "#1a9641"
+C_ORCH      = "#4d4d4d"
+C_ISSL_FWD  = "#b2182b"
+C_ISSL_RET  = "#e08214"
+C_SOURCE    = "#762a83"
+C_TIMELINE  = "#525252"
+C_BG_ODE    = "#deebf7"
+C_BG_ABM    = "#e5f5e0"
+C_BG_ORCH   = "#f0f0f0"
+C_BANNER    = "#7f0000"
+C_BANNER_BG = "#fff5f5"
 
-FONT_MAIN = "DejaVu Sans"
+FIG_W, FIG_H = 14.0, 10.0
 
-# ── Figure setup ─────────────────────────────────────────────────────────────
-fig = plt.figure(figsize=(16, 11))
+# ════════════════════════════════════════════════════════════════════════════
+# Figure scaffold
+# ════════════════════════════════════════════════════════════════════════════
+fig = plt.figure(figsize=(FIG_W, FIG_H))
 fig.patch.set_facecolor("white")
 
 gs = fig.add_gridspec(
     2, 1,
-    height_ratios=[3.2, 1],
-    hspace=0.30,
-    left=0.03, right=0.97, top=0.96, bottom=0.03
+    height_ratios=[3.0, 1.0],
+    hspace=0.15,
+    left=0.02, right=0.98, top=0.98, bottom=0.03,
 )
-ax_arch     = fig.add_subplot(gs[0])
-ax_timeline = fig.add_subplot(gs[1])
-
-for ax in (ax_arch, ax_timeline):
-    ax.set_xlim(0, 12)
+ax_arch = fig.add_subplot(gs[0])
+ax_tl   = fig.add_subplot(gs[1])
+for ax in (ax_arch, ax_tl):
     ax.set_aspect("equal")
     ax.axis("off")
 
-ax_timeline.set_xlim(0, 12)
-ax_timeline.set_ylim(-0.25, 1.80)
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# PANEL A — Architecture diagram
-# ══════════════════════════════════════════════════════════════════════════════
-
-ax_arch.set_xlim(0, 12)
-ax_arch.set_ylim(0, 8)
-
-def rounded_box(ax, x, y, w, h, facecolor, edgecolor, lw=1.8, radius=0.18, zorder=2):
-    box = FancyBboxPatch(
+# ── helpers ─────────────────────────────────────────────────────────────────
+def rbox(ax, x, y, w, h, fc, ec, lw=1.6, r=0.18, z=2):
+    p = FancyBboxPatch(
         (x, y), w, h,
-        boxstyle=f"round,pad=0,rounding_size={radius}",
-        facecolor=facecolor, edgecolor=edgecolor, linewidth=lw, zorder=zorder
+        boxstyle=f"round,pad=0,rounding_size={r}",
+        facecolor=fc, edgecolor=ec, linewidth=lw, zorder=z,
     )
-    ax.add_patch(box)
-    return box
+    ax.add_patch(p)
+    return p
 
-def header_box(ax, x, y, w, h_header, text, facecolor, textcolor="white", fontsize=10):
-    box = FancyBboxPatch(
-        (x, y), w, h_header,
-        boxstyle=f"round,pad=0,rounding_size=0.15",
-        facecolor=facecolor, edgecolor="none", zorder=3
+
+def header_bar(ax, x, y, w, h, text, fc, fs=11.5):
+    rbox(ax, x, y, w, h, fc, "none", lw=0, r=0.16, z=3)
+    ax.text(x + w / 2, y + h / 2, text,
+            ha="center", va="center", fontsize=fs, fontweight="bold",
+            color="white", zorder=4)
+
+
+def arrow(ax, p0, p1, color, lw=2.4, z=5, style="-|>"):
+    a = FancyArrowPatch(
+        p0, p1,
+        arrowstyle=style, mutation_scale=20, lw=lw, color=color,
+        connectionstyle="arc3,rad=0.0", zorder=z,
     )
-    ax.add_patch(box)
-    ax.text(x + w / 2, y + h_header / 2, text,
-            ha="center", va="center", fontsize=fontsize, fontweight="bold",
-            color=textcolor, zorder=4)
-
-def signal_arrow(ax, x0, y0, x1, y1, color, label, label_side="top", lw=2.0, zorder=5):
-    ax.annotate(
-        "", xy=(x1, y1), xytext=(x0, y0),
-        arrowprops=dict(
-            arrowstyle="-|>",
-            color=color,
-            lw=lw,
-            connectionstyle="arc3,rad=0.0",
-            mutation_scale=18,
-        ),
-        zorder=zorder,
-    )
-    xm = (x0 + x1) / 2
-    ym = (y0 + y1) / 2
-    dy = 0.24 if label_side == "top" else -0.24
-    ax.text(xm, ym + dy, label,
-            ha="center", va="center", fontsize=8, color=color,
-            fontweight="bold", zorder=zorder + 1,
-            bbox=dict(boxstyle="round,pad=0.18", facecolor="white",
-                      edgecolor=color, linewidth=0.9, alpha=0.92))
+    ax.add_patch(a)
 
 
-# ─── Orchestrator (centre) ───────────────────────────────────────────────────
-ox, oy, ow, oh = 4.3, 2.6, 3.4, 3.2
-rounded_box(ax_arch, ox, oy, ow, oh, C_BG_ORCH, C_ORCH, lw=2.2)
-ax_arch.text(ox + ow / 2, oy + oh - 0.30, "OISA Orchestrator",
-             ha="center", va="top", fontsize=12, fontweight="bold",
-             color=C_ORCH, zorder=4)
-
-internals = [
-    "GSimT clock  (Δt = 6 h)",
-    "Causal resolver  (topological DAG)",
-    "ISSL router  (signal fan-out)",
-    "Watchdog  (divergence_score < 0.15)",
-]
-for i, txt in enumerate(internals):
-    bx = ox + 0.22
-    by = oy + oh - 0.70 - i * 0.52
-    bw, bh = ow - 0.44, 0.38
-    rounded_box(ax_arch, bx, by, bw, bh, "white", C_ORCH, lw=1.1, radius=0.09, zorder=3)
-    ax_arch.text(bx + bw / 2, by + bh / 2, txt,
-                 ha="center", va="center", fontsize=8.2, color=C_ORCH, zorder=4)
+def arrow_label(ax, p0, p1, text, color, lift=0.0, z=7):
+    """Place a white-filled, colour-bordered label at the midpoint of an
+    arrow, lifted perpendicular to the arrow by `lift` axis units."""
+    mx, my = (p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2
+    ax.text(mx, my + lift, text,
+            ha="center", va="center", fontsize=8.4, color=color,
+            fontweight="bold", zorder=z,
+            bbox=dict(boxstyle="round,pad=0.28", facecolor="white",
+                      edgecolor=color, linewidth=1.1))
 
 
-# ─── Miao2010 ODE (left) ─────────────────────────────────────────────────────
-mx, my, mw, mh = 0.30, 1.5, 3.30, 4.8
-rounded_box(ax_arch, mx, my, mw, mh, C_BG_ODE, C_ODE, lw=2.2)
+# ════════════════════════════════════════════════════════════════════════════
+# PANEL (a) — Architecture
+# ════════════════════════════════════════════════════════════════════════════
+ax_arch.set_xlim(0, 14)
+ax_arch.set_ylim(0, 10)
 
-# Header
-header_box(ax_arch, mx, my + mh - 0.58, mw, 0.58,
-           "Miao et al. 2010  (ODE)", C_ODE, fontsize=11)
+ax_arch.text(0.12, 9.80, "(a)", fontsize=14.5, fontweight="bold",
+             color="#222222", va="top")
 
-# Source badge
-ax_arch.text(mx + mw / 2, my + mh - 0.96,
+# Three boxes, same y-range, wide gaps to host signal corridors
+BOX_Y, BOX_H = 3.20, 4.60            # boxes span y = 3.20 .. 7.80
+ODE_X, ODE_W = 0.40, 3.60
+OR_X,  OR_W  = 5.30, 3.40
+ABM_X, ABM_W = 10.00, 3.60
+
+# Signal corridors (above and below boxes)
+Y_FWD = 8.40     # forward  (ODE → Orch → ABM)
+Y_RET = 2.20     # return   (ABM → Orch → ODE)
+
+# ── ODE box ─────────────────────────────────────────────────────────────────
+rbox(ax_arch, ODE_X, BOX_Y, ODE_W, BOX_H, C_BG_ODE, C_ODE, lw=2.4)
+header_bar(ax_arch, ODE_X, BOX_Y + BOX_H - 0.70, ODE_W, 0.70,
+           "Miao 2010  —  ODE", C_ODE, fs=13.0)
+# Δt pill: small coloured tab overlapping the header bar's bottom-right
+ax_arch.text(ODE_X + ODE_W - 0.15, BOX_Y + BOX_H - 0.70,
+             "Δt = 6 h", ha="right", va="center", fontsize=8.6,
+             color="white", fontweight="bold", zorder=5,
+             bbox=dict(boxstyle="round,pad=0.20", facecolor=C_ODE,
+                       edgecolor="white", linewidth=1.2))
+
+ax_arch.text(ODE_X + ODE_W / 2, BOX_Y + BOX_H - 1.05,
              "BioModels  BIOMD0000000546",
              ha="center", va="center", fontsize=7.8, color=C_SOURCE,
              fontweight="bold", style="italic",
-             bbox=dict(boxstyle="round,pad=0.18", facecolor="#f2e6f9",
-                       edgecolor=C_SOURCE, linewidth=1.0, alpha=0.95))
+             bbox=dict(boxstyle="round,pad=0.20", facecolor="#f5ecfb",
+                       edgecolor=C_SOURCE, linewidth=1.0))
 
-# State variables
-ax_arch.text(mx + 0.18, my + mh - 1.40, "State variables  (SBML species):",
-             fontsize=8.0, color=C_ODE, fontweight="bold")
-svars = [
-    ("Ep",  "Uninfected epithelial cells",   "580 000 cells"),
-    ("Eps", "Infected epithelial cells",      "0  →  peak ~4×10⁵"),
-    ("V",   "Viral load",                     "10³ → ~10⁷ copies / mL"),
-]
-for i, (sym, desc, val) in enumerate(svars):
-    yy = my + mh - 1.80 - i * 0.50
-    ax_arch.text(mx + 0.22, yy, sym, fontsize=10, color=C_ODE,
+ax_arch.text(ODE_X + 0.25, BOX_Y + BOX_H - 1.75,
+             "State variables:",
+             fontsize=9.0, color=C_ODE, fontweight="bold")
+for i, (sym, desc) in enumerate([
+    ("Ep",  "uninfected epi. cells"),
+    ("Eps", "infected epi. cells"),
+    ("V",   "viral load (copies/mL)"),
+]):
+    yy = BOX_Y + BOX_H - 2.15 - i * 0.40
+    ax_arch.text(ODE_X + 0.30, yy, sym, fontsize=10.0, color=C_ODE,
                  fontweight="bold", va="center")
-    ax_arch.text(mx + 0.68, yy + 0.10, desc, fontsize=7.8,
-                 color="#333333", va="center")
-    ax_arch.text(mx + 0.68, yy - 0.14, val, fontsize=7.2,
-                 color="#666666", va="center", style="italic")
+    ax_arch.text(ODE_X + 1.10, yy, desc, fontsize=8.2,
+                 color="#222222", va="center")
 
-# Key parameters
-ax_arch.text(mx + 0.18, my + 0.98, "Key parameters  (Table 1, Miao 2010):",
-             fontsize=8.0, color=C_ODE, fontweight="bold")
-params = [
-    "β = 10⁻⁶ mL·copies⁻¹·day⁻¹   (infection rate)",
-    "π = 100 copies·cell⁻¹·day⁻¹   (viral production)",
-    "c_V = 4.2 day⁻¹  |  δ = 0.6 day⁻¹",
-    "k_E = 2×10⁻⁵ mL·cell⁻¹·day⁻¹   (CTL killing const.)",
-]
-for i, p in enumerate(params):
-    ax_arch.text(mx + 0.32, my + 0.72 - i * 0.22, p,
-                 fontsize=7.4, color="#444444", va="center")
+ax_arch.text(ODE_X + 0.25, BOX_Y + 0.80,
+             "Coupling I/O:", fontsize=9.0, color=C_ODE,
+             fontweight="bold")
+ax_arch.text(ODE_X + 0.30, BOX_Y + 0.48,
+             "Emit   :  V  (viral load)",
+             fontsize=8.2, color="#222222", va="center",
+             family="DejaVu Sans Mono")
+ax_arch.text(ODE_X + 0.30, BOX_Y + 0.20,
+             "Accept :  T_E_T  (CTL)",
+             fontsize=8.2, color="#222222", va="center",
+             family="DejaVu Sans Mono")
 
-ax_arch.text(mx + mw - 0.18, my + 0.18, "Δt = 6 h",
-             ha="right", va="center", fontsize=9.0, color=C_ODE,
-             fontweight="bold",
-             bbox=dict(boxstyle="round,pad=0.22", facecolor=C_BG_ODE,
-                       edgecolor=C_ODE, linewidth=1.1))
+# ── ABM box ─────────────────────────────────────────────────────────────────
+rbox(ax_arch, ABM_X, BOX_Y, ABM_W, BOX_H, C_BG_ABM, C_ABM, lw=2.4)
+header_bar(ax_arch, ABM_X, BOX_Y + BOX_H - 0.70, ABM_W, 0.70,
+           "Sego 2020  —  ABM", C_ABM, fs=13.0)
+ax_arch.text(ABM_X + ABM_W - 0.15, BOX_Y + BOX_H - 0.70,
+             "Δt = 24 h", ha="right", va="center", fontsize=8.6,
+             color="white", fontweight="bold", zorder=5,
+             bbox=dict(boxstyle="round,pad=0.20", facecolor=C_ABM,
+                       edgecolor="white", linewidth=1.2))
 
-# Emit / Accept labels
-ax_arch.text(mx + mw, my + mh * 0.65 + 0.10, "Emit()",
-             ha="left", va="bottom", fontsize=7.5, color=C_ISSL,
-             fontweight="bold", style="italic")
-ax_arch.text(mx + mw, my + mh * 0.35 - 0.10, "Accept()",
-             ha="left", va="top", fontsize=7.5, color=C_ISSL_BACK,
-             fontweight="bold", style="italic")
-
-
-# ─── Sego2020 ABM (right) ────────────────────────────────────────────────────
-sx, sy, sw, sh = 8.40, 1.5, 3.30, 4.8
-rounded_box(ax_arch, sx, sy, sw, sh, C_BG_ABM, C_ABM, lw=2.2)
-
-header_box(ax_arch, sx, sy + sh - 0.58, sw, 0.58,
-           "Sego et al. 2020  (ABM)", C_ABM, fontsize=11)
-
-ax_arch.text(sx + sw / 2, sy + sh - 0.96,
-             "GitHub  covid-tissue-models  @5b7e42c",
+ax_arch.text(ABM_X + ABM_W / 2, BOX_Y + BOX_H - 1.05,
+             "ViralInfectionVTM  @5b7e42c",
              ha="center", va="center", fontsize=7.8, color=C_SOURCE,
              fontweight="bold", style="italic",
-             bbox=dict(boxstyle="round,pad=0.18", facecolor="#f2e6f9",
-                       edgecolor=C_SOURCE, linewidth=1.0, alpha=0.95))
+             bbox=dict(boxstyle="round,pad=0.20", facecolor="#f5ecfb",
+                       edgecolor=C_SOURCE, linewidth=1.0))
 
-ax_arch.text(sx + 0.18, sy + sh - 1.40, "State variables  (immune recruitment):",
-             fontsize=8.0, color=C_ABM, fontweight="bold")
-avars = [
-    ("S",        "Recruitment state variable",    "dS/dt = addRate + ck/delay − …"),
-    ("n_immune", "Immune cells in tissue",         "0  →  stochastic seeding"),
-    ("total_ck", "Cytokine signal proxy",           "∝ viral load × ir_trans."),
-]
-for i, (sym, desc, val) in enumerate(avars):
-    yy = sy + sh - 1.80 - i * 0.50
-    ax_arch.text(sx + 0.22, yy, sym, fontsize=10, color=C_ABM,
-                 fontweight="bold", va="center")
-    ax_arch.text(sx + 0.82, yy + 0.10, desc, fontsize=7.8,
-                 color="#333333", va="center")
-    ax_arch.text(sx + 0.82, yy - 0.14, val, fontsize=7.2,
-                 color="#666666", va="center", style="italic")
-
-ax_arch.text(sx + 0.18, sy + 0.98, "Parameters  (ViralInfectionVTMModelInputs.py):",
-             fontsize=8.0, color=C_ABM, fontweight="bold")
-aparams = [
-    "addRate  = 1/1200 s⁻¹  ≡  72 day⁻¹",
-    "decayRate = 10⁻¹/1200 s⁻¹  ≡  7.2 day⁻¹",
-    "ir_transmission_coeff = 0.5",
-    "ir_prob_scaling_factor = 0.01",
-]
-for i, p in enumerate(aparams):
-    ax_arch.text(sx + 0.32, sy + 0.72 - i * 0.22, p,
-                 fontsize=7.4, color="#444444", va="center")
-
-ax_arch.text(sx + sw - 0.18, sy + 0.18, "Δt = 24 h",
-             ha="right", va="center", fontsize=9.0, color=C_ABM,
-             fontweight="bold",
-             bbox=dict(boxstyle="round,pad=0.22", facecolor=C_BG_ABM,
-                       edgecolor=C_ABM, linewidth=1.1))
-
-ax_arch.text(sx, sy + sh * 0.65 + 0.10, "Accept()",
-             ha="right", va="bottom", fontsize=7.5, color=C_ISSL,
-             fontweight="bold", style="italic")
-ax_arch.text(sx, sy + sh * 0.35 - 0.10, "Emit()",
-             ha="right", va="top", fontsize=7.5, color=C_ISSL_BACK,
-             fontweight="bold", style="italic")
-
-
-# ─── ISSL Signals ────────────────────────────────────────────────────────────
-# ODE → Orch
-signal_arrow(ax_arch,
-             mx + mw,  my + mh * 0.65,
-             ox,        oy + oh * 0.75,
-             C_ISSL, "miao2010.viral_load\n(copies/mL)", label_side="top", lw=2.2)
-# Orch → ABM
-signal_arrow(ax_arch,
-             ox + ow,   oy + oh * 0.75,
-             sx,         sy + sh * 0.65,
-             C_ISSL, "→ cytokine proxy\n(drives S growth)", label_side="top", lw=2.2)
-# ABM → Orch
-signal_arrow(ax_arch,
-             sx,         sy + sh * 0.35,
-             ox + ow,    oy + oh * 0.25,
-             C_ISSL_BACK, "sego2020.immune_cell_count\n(n_immune)", label_side="bottom", lw=2.2)
-# Orch → ODE
-signal_arrow(ax_arch,
-             ox,          oy + oh * 0.25,
-             mx + mw,     my + mh * 0.35,
-             C_ISSL_BACK, "→ T_E_T  (CTL count)\nkilling rate = k_E×Eps×T_E_T", label_side="bottom", lw=2.2)
-
-
-# ─── Legend ──────────────────────────────────────────────────────────────────
-leg_x, leg_y = 4.20, 7.45
-ax_arch.text(leg_x, leg_y + 0.30, "ISSL signal direction:", fontsize=8.5,
-             color="#222222", fontweight="bold", va="center")
-for j, (col, lbl) in enumerate([
-    (C_ISSL,      "ODE → ABM :  viral load drives immune recruitment"),
-    (C_ISSL_BACK, "ABM → ODE :  immune cells suppress viral replication"),
+ax_arch.text(ABM_X + 0.25, BOX_Y + BOX_H - 1.75,
+             "State variables:",
+             fontsize=9.0, color=C_ABM, fontweight="bold")
+for i, (sym, desc) in enumerate([
+    ("n_immune", "tissue immune cells"),
+    ("total_ck", "cytokine integral"),
+    ("S",        "recruitment var."),
 ]):
-    yl = leg_y - j * 0.38
-    ax_arch.annotate("", xy=(leg_x + 0.42, yl), xytext=(leg_x + 0.08, yl),
-                     arrowprops=dict(arrowstyle="-|>", color=col, lw=2.2,
-                                     mutation_scale=14), zorder=6)
-    ax_arch.text(leg_x + 0.50, yl, lbl, fontsize=8.0, color=col,
-                 va="center", fontweight="bold")
+    yy = BOX_Y + BOX_H - 2.15 - i * 0.40
+    ax_arch.text(ABM_X + 0.30, yy, sym, fontsize=10.0, color=C_ABM,
+                 fontweight="bold", va="center")
+    ax_arch.text(ABM_X + 1.75, yy, desc, fontsize=8.2,
+                 color="#222222", va="center")
 
-# "No modification" banner
-ax_arch.text(6.0, 0.45,
-             "Zero lines modified in either published model"
-             "  —  only  Emit() / Accept()  adapters added  (OISA principle)",
-             ha="center", va="center", fontsize=8.5, color="#7f0000",
+ax_arch.text(ABM_X + 0.25, BOX_Y + 0.80,
+             "Coupling I/O:", fontsize=9.0, color=C_ABM,
+             fontweight="bold")
+ax_arch.text(ABM_X + 0.30, BOX_Y + 0.48,
+             "Accept :  cytokine (∝ V)",
+             fontsize=8.2, color="#222222", va="center",
+             family="DejaVu Sans Mono")
+ax_arch.text(ABM_X + 0.30, BOX_Y + 0.20,
+             "Emit   :  n_immune",
+             fontsize=8.2, color="#222222", va="center",
+             family="DejaVu Sans Mono")
+
+# ── Orchestrator (centre) ───────────────────────────────────────────────────
+rbox(ax_arch, OR_X, BOX_Y, OR_W, BOX_H, C_BG_ORCH, C_ORCH, lw=2.6)
+header_bar(ax_arch, OR_X, BOX_Y + BOX_H - 0.70, OR_W, 0.70,
+           "OISA  Orchestrator", C_ORCH, fs=12.2)
+
+internals = [
+    "GSimT clock   (Δt = 6 h)",
+    "Causal resolver   (DAG)",
+    "ISSL router",
+    "Watchdog   (div. < 0.15)",
+]
+n = len(internals)
+top_of_internals = BOX_Y + BOX_H - 0.95
+cell_h = 0.46
+spacing = 0.06
+for i, txt in enumerate(internals):
+    by = top_of_internals - (i + 1) * cell_h - i * spacing
+    bx = OR_X + 0.25
+    bw = OR_W - 0.50
+    rbox(ax_arch, bx, by, bw, cell_h, "white", C_ORCH, lw=1.0, r=0.08, z=3)
+    ax_arch.text(bx + bw / 2, by + cell_h / 2, txt,
+                 ha="center", va="center", fontsize=8.8,
+                 color=C_ORCH, zorder=4)
+
+# ── Signal corridors ────────────────────────────────────────────────────────
+# Upward stubs (boxes → forward corridor)
+arrow(ax_arch, (ODE_X + ODE_W * 0.60, BOX_Y + BOX_H),
+      (ODE_X + ODE_W * 0.60, Y_FWD - 0.05),
+      C_ISSL_FWD, lw=2.4, style="-")
+arrow(ax_arch, (OR_X + OR_W * 0.40, BOX_Y + BOX_H),
+      (OR_X + OR_W * 0.40, Y_FWD - 0.05),
+      C_ISSL_FWD, lw=2.4, style="-")
+arrow(ax_arch, (OR_X + OR_W * 0.60, BOX_Y + BOX_H),
+      (OR_X + OR_W * 0.60, Y_FWD - 0.05),
+      C_ISSL_FWD, lw=2.4, style="-")
+arrow(ax_arch, (ABM_X + ABM_W * 0.40, BOX_Y + BOX_H),
+      (ABM_X + ABM_W * 0.40, Y_FWD - 0.05),
+      C_ISSL_FWD, lw=2.4, style="-")
+
+# Forward horizontal segments
+p_ode_up  = (ODE_X + ODE_W * 0.60, Y_FWD)
+p_orch_L  = (OR_X  + OR_W  * 0.40, Y_FWD)
+p_orch_R  = (OR_X  + OR_W  * 0.60, Y_FWD)
+p_abm_up  = (ABM_X + ABM_W * 0.40, Y_FWD)
+
+arrow(ax_arch, p_ode_up, p_orch_L, C_ISSL_FWD, lw=2.6)
+arrow_label(ax_arch, p_ode_up, p_orch_L,
+            "miao2010.viral_load\n(copies / mL)",
+            C_ISSL_FWD, lift=0.55)
+
+arrow(ax_arch, p_orch_R, p_abm_up, C_ISSL_FWD, lw=2.6)
+arrow_label(ax_arch, p_orch_R, p_abm_up,
+            "→ cytokine proxy\n(drives S)",
+            C_ISSL_FWD, lift=0.55)
+
+# Downward stubs (boxes → return corridor)
+arrow(ax_arch, (ABM_X + ABM_W * 0.60, BOX_Y),
+      (ABM_X + ABM_W * 0.60, Y_RET + 0.05),
+      C_ISSL_RET, lw=2.4, style="-")
+arrow(ax_arch, (OR_X + OR_W * 0.60, BOX_Y),
+      (OR_X + OR_W * 0.60, Y_RET + 0.05),
+      C_ISSL_RET, lw=2.4, style="-")
+arrow(ax_arch, (OR_X + OR_W * 0.40, BOX_Y),
+      (OR_X + OR_W * 0.40, Y_RET + 0.05),
+      C_ISSL_RET, lw=2.4, style="-")
+arrow(ax_arch, (ODE_X + ODE_W * 0.40, BOX_Y),
+      (ODE_X + ODE_W * 0.40, Y_RET + 0.05),
+      C_ISSL_RET, lw=2.4, style="-")
+
+p_abm_dn = (ABM_X + ABM_W * 0.60, Y_RET)
+p_orch_R_dn = (OR_X + OR_W * 0.60, Y_RET)
+p_orch_L_dn = (OR_X + OR_W * 0.40, Y_RET)
+p_ode_dn = (ODE_X + ODE_W * 0.40, Y_RET)
+
+arrow(ax_arch, p_abm_dn, p_orch_R_dn, C_ISSL_RET, lw=2.6)
+arrow_label(ax_arch, p_abm_dn, p_orch_R_dn,
+            "sego2020.immune_cell_count\n(n_immune)",
+            C_ISSL_RET, lift=-0.55)
+
+arrow(ax_arch, p_orch_L_dn, p_ode_dn, C_ISSL_RET, lw=2.6)
+arrow_label(ax_arch, p_orch_L_dn, p_ode_dn,
+            "→ T_E_T\n(CTL count)",
+            C_ISSL_RET, lift=-0.55)
+
+# Corridor labels — compact badges placed inside the corridor, away
+# from the arrow lanes so they don't collide with arrow glyphs.
+ax_arch.text(13.70, Y_FWD, "ISSL\nforward",
+             ha="center", va="center", fontsize=8.4,
+             color=C_ISSL_FWD, fontweight="bold",
+             bbox=dict(boxstyle="round,pad=0.22", facecolor="white",
+                       edgecolor=C_ISSL_FWD, linewidth=1.0))
+ax_arch.text(0.30, Y_RET, "ISSL\nreturn",
+             ha="center", va="center", fontsize=8.4,
+             color=C_ISSL_RET, fontweight="bold",
+             bbox=dict(boxstyle="round,pad=0.22", facecolor="white",
+                       edgecolor=C_ISSL_RET, linewidth=1.0))
+
+# ── "Zero modification" banner ──────────────────────────────────────────────
+ax_arch.text(7.0, 0.85,
+             "Zero lines modified in either published model — "
+             "only  Emit()  /  Accept()  adapters added   (OISA principle)",
+             ha="center", va="center", fontsize=9.6, color=C_BANNER,
              fontweight="bold", style="italic",
-             bbox=dict(boxstyle="round,pad=0.35", facecolor="#fff5f5",
-                       edgecolor="#c0392b", linewidth=1.3, alpha=0.96))
-
-ax_arch.text(0.10, 7.85, "(a)", fontsize=13, fontweight="bold",
-             color="#222222", va="top")
+             bbox=dict(boxstyle="round,pad=0.40", facecolor=C_BANNER_BG,
+                       edgecolor="#c0392b", linewidth=1.4))
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PANEL B — GSimT timeline
-# ══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════
+# PANEL (b) — GSimT timeline
+# ════════════════════════════════════════════════════════════════════════════
+ax_tl.set_xlim(0, 14)
+ax_tl.set_ylim(-0.40, 2.60)
 
-ax_timeline.set_xlim(0, 12)
-ax_timeline.set_ylim(-0.30, 1.90)
+ax_tl.text(0.12, 2.45, "(b)", fontsize=14.5, fontweight="bold",
+           color="#222222", va="top")
 
-# Day positions
-n_days = 6
-day_xs = [1.0 + i * 1.70 for i in range(n_days)]
+# Banner
+ax_tl.text(7.0, 2.35,
+           "GSimT = GCD(6 h, 24 h) = 6 h      →      "
+           "56 ISSL checkpoints over a 14-day simulation",
+           ha="center", va="center", fontsize=10.0, color=C_ORCH,
+           fontweight="bold",
+           bbox=dict(boxstyle="round,pad=0.32", facecolor=C_BG_ORCH,
+                     edgecolor=C_ORCH, linewidth=1.2))
 
-# Main timeline bar
-ax_timeline.axhline(0.85, xmin=0.05, xmax=0.98, color=C_TIMELINE, lw=2.2, zorder=2)
+Y_ODE  = 1.55
+Y_AXIS = 1.05
+Y_ABM  = 0.55
+
+ax_tl.text(1.05, Y_ODE, "ODE   (Δt = 6 h)",  ha="right", va="center",
+           fontsize=9.4, color=C_ODE, fontweight="bold")
+ax_tl.text(1.05, Y_AXIS, "ISSL checkpoint",  ha="right", va="center",
+           fontsize=9.4, color=C_ISSL_FWD, fontweight="bold")
+ax_tl.text(1.05, Y_ABM, "ABM   (Δt = 24 h)", ha="right", va="center",
+           fontsize=9.4, color=C_ABM, fontweight="bold")
+
+n_days = 7
+day_xs = [1.35 + i * 1.65 for i in range(n_days)]
+
+# Main axis
+ax_tl.plot([day_xs[0] - 0.30, day_xs[-1] + 0.30],
+           [Y_AXIS, Y_AXIS], color=C_TIMELINE, lw=2.0, zorder=2)
 
 for i, dx in enumerate(day_xs):
-    ax_timeline.plot([dx], [0.85], "v", color=C_TIMELINE, ms=10, zorder=3)
-    ax_timeline.text(dx, 0.57, f"Day {i}", ha="center", va="top",
-                     fontsize=8.5, color=C_TIMELINE, fontweight="bold")
-    # ODE ticks (4 per day)
-    for q in range(4):
-        tx = dx + q * 1.70 / 4
-        if tx < day_xs[-1] + 0.15:
-            ax_timeline.plot([tx, tx], [0.85, 0.85 + 0.28],
-                             color=C_ODE, lw=1.8, zorder=4)
+    # Day label (below ABM row)
+    ax_tl.text(dx, Y_ABM - 0.30, f"Day {i}", ha="center", va="top",
+               fontsize=8.8, color=C_TIMELINE, fontweight="bold")
+
+    # ABM tick (every 24 h)
+    ax_tl.plot([dx, dx], [Y_AXIS, Y_ABM + 0.02], color=C_ABM, lw=2.6,
+               zorder=4, solid_capstyle="round")
+    ax_tl.plot([dx], [Y_ABM + 0.02], "v", color=C_ABM, ms=10, zorder=5,
+               markeredgecolor="white", markeredgewidth=1.2)
+
+    # ODE ticks (every 6 h) within this day, plus ISSL dots
+    if i < n_days - 1:
+        for q in range(4):
+            tx = dx + q * 1.65 / 4
+            ax_tl.plot([tx, tx], [Y_AXIS, Y_ODE - 0.02], color=C_ODE,
+                       lw=1.8, zorder=4, solid_capstyle="round")
+            ax_tl.plot([tx], [Y_ODE - 0.02], "^", color=C_ODE, ms=7,
+                       zorder=5, markeredgecolor="white",
+                       markeredgewidth=0.9)
+            # ISSL checkpoint (larger at day boundary)
+            ms = 10 if q == 0 else 6.5
+            ax_tl.plot([tx], [Y_AXIS], "o", color=C_ISSL_FWD, ms=ms,
+                       zorder=6, markeredgecolor="white",
+                       markeredgewidth=1.2)
             if q > 0:
-                ax_timeline.text(tx, 0.85 + 0.33, f"+{q*6}h",
-                                 ha="center", va="bottom", fontsize=6.5, color=C_ODE)
-    # ABM tick
-    ax_timeline.plot([dx, dx], [0.85, 0.85 - 0.40], color=C_ABM, lw=2.5, zorder=4)
-    # ISSL checkpoint dot (daily)
-    ax_timeline.plot([dx], [0.85], "o", color=C_ISSL, ms=10, zorder=5,
-                     markeredgecolor="white", markeredgewidth=1.5)
+                ax_tl.text(tx, Y_ODE + 0.12, f"+{q*6}h",
+                           ha="center", va="bottom",
+                           fontsize=6.6, color=C_ODE)
+    else:
+        # Final day: single ISSL dot
+        ax_tl.plot([dx], [Y_AXIS], "o", color=C_ISSL_FWD, ms=10,
+                   zorder=6, markeredgecolor="white", markeredgewidth=1.2)
 
-# Sub-daily ISSL checkpoints
-for i, dx in enumerate(day_xs[:-1]):
-    for q in range(1, 4):
-        tx = dx + q * 1.70 / 4
-        ax_timeline.plot([tx, tx], [0.85, 0.85 + 0.28], color=C_ODE, lw=1.8, zorder=4)
-        ax_timeline.plot([tx], [0.85], "o", color=C_ISSL, ms=6, zorder=5,
-                         markeredgecolor="white", markeredgewidth=0.8, alpha=0.75)
-
-# Row labels
-ax_timeline.text(0.50, 0.85 + 0.18, "ODE  (Δt = 6 h)", ha="right",
-                 fontsize=8.5, color=C_ODE, fontweight="bold", va="center")
-ax_timeline.text(0.50, 0.85 - 0.25, "ABM  (Δt = 24 h)", ha="right",
-                 fontsize=8.5, color=C_ABM, fontweight="bold", va="center")
-ax_timeline.text(0.50, 0.85, "ISSL checkpoint", ha="right",
-                 fontsize=8.5, color=C_ISSL, fontweight="bold", va="center")
-
-# Causal ordering callout (day 1)
-dx1 = day_xs[1]
-ax_timeline.annotate(
-    "Causal ordering at each 24h boundary:\n"
-    "① ABM.emit()  →  ODE.accept()\n"
-    "② ODE.step()  →  ODE.emit()\n"
-    "③ ABM.accept()  (one-tick delay)",
-    xy=(dx1, 0.85 - 0.40), xytext=(dx1 + 0.75, 0.18),
-    fontsize=7.5, color="#333333",
-    arrowprops=dict(arrowstyle="->", color="#555555", lw=1.2),
+# Causal ordering callout — anchor on Day 2, float to the right under Days 4-6
+ax_tl.annotate(
+    "Causal ordering at each 24-h boundary:\n"
+    "①  ABM.emit()     →  ODE.accept()\n"
+    "②  ODE.step()     →  ODE.emit()\n"
+    "③  ABM.accept()   (one-tick delay)",
+    xy=(day_xs[1], Y_ABM - 0.08),
+    xytext=(day_xs[4] + 0.40, -0.05),
+    fontsize=8.2, color="#222222",
+    arrowprops=dict(arrowstyle="->", color="#777777", lw=1.1),
     bbox=dict(boxstyle="round,pad=0.35", facecolor="#fafafa",
               edgecolor="#aaaaaa", linewidth=0.9),
-    ha="left", va="center", zorder=6
+    ha="left", va="center", zorder=7,
 )
 
-# GSimT banner
-ax_timeline.text(6.0, 1.70,
-                 "GSimT = GCD(6 h, 24 h) = 6 h"
-                 "     →     56 ISSL checkpoints per 14-day simulation",
-                 ha="center", va="center", fontsize=9.0, color=C_ORCH,
-                 fontweight="bold",
-                 bbox=dict(boxstyle="round,pad=0.35", facecolor=C_BG_ORCH,
-                           edgecolor=C_ORCH, linewidth=1.2))
-
-ax_timeline.text(0.10, 1.85, "(b)", fontsize=13, fontweight="bold",
-                 color="#222222", va="top")
-
-# ── Save ───────────────────────────────────────────────────────────────────────
-import pathlib
+# ── Save ─────────────────────────────────────────────────────────────────────
 out_dir = pathlib.Path(__file__).parent
-out_dir.mkdir(exist_ok=True)
-
 fig.savefig(out_dir / "oisa_workflow.pdf", dpi=300, bbox_inches="tight")
 fig.savefig(out_dir / "oisa_workflow.png", dpi=200, bbox_inches="tight")
 print(f"Saved: {out_dir / 'oisa_workflow.pdf'}")
