@@ -1,5 +1,19 @@
 \relax 
 \providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyperFirstAtBeginDocument{\AtBeginDocument}
+\HyperFirstAtBeginDocument{\ifx\hyper@anchor\@undefined
+\global\let\oldcontentsline\contentsline
+\gdef\contentsline#1#2#3#4{\oldcontentsline{#1}{#2}{#3}}
+\global\let\oldnewlabel\newlabel
+\gdef\newlabel#1#2{\newlabelxx{#1}#2}
+\gdef\newlabelxx#1#2#3#4#5#6{\oldnewlabel{#1}{{#2}{#3}}}
+\AtEndDocument{\ifx\hyper@anchor\@undefined
+\let\contentsline\oldcontentsline
+\let\newlabel\oldnewlabel
+\fi}
+\fi}
+\global\let\hyper@last\relax 
+\gdef\HyperFirstAtBeginDocument#1{#1}
 \providecommand\HyField@AuxAddToFields[1]{}
 \providecommand\HyField@AuxAddToCoFields[2]{}
 \citation{hucka2015sbml}
@@ -34,7 +48,7 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-C}}Immune Digital Twins}{2}{subsection.2.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {III}Problem Formalisation}{2}{section.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Formal Model Definition}{2}{subsection.3.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Comparison of SBML, CellML, NeuroML/LEMS, and OISA across capabilities relevant to multi-organ immune simulation. ``---'' = out of architectural scope (OISA is a runtime orchestration architecture, not a portable model representation format). Runtime~UQ: ensemble bounds (reported in the \texttt  {ci\_95} schema field) originate in the stochastic ABM ensemble ($N\!=\!20$ parallel CC3D instances; reported as 5--95th percentile estimates) and propagate through the deterministic ODE via triple integration at each checkpoint (\S  \ref {sec:valid-setup}). ``SBML L3'' refers to the format specification alone; SED-ML \cite  {waltemath2011sedml} provides co-simulation capabilities including heterogeneous time-stepping for SBML-compatible models but does not extend to ABM composition.}}{3}{table.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Comparison of SBML, CellML, NeuroML/LEMS, and OISA across capabilities relevant to multi-organ immune simulation. ``---'' = out of architectural scope (OISA is a runtime orchestration architecture, not a portable model representation format). Runtime\nobreakspace  {}UQ: ensemble bounds (reported in the \texttt  {ci\_95} schema field) originate in the stochastic ABM ensemble ($N\!=\!20$ parallel CC3D instances; reported as 5--95th percentile estimates) and propagate through the deterministic ODE via triple integration at each checkpoint (\S  \ref  {sec:valid-setup}). ``SBML L3'' refers to the format specification alone; SED-ML \cite  {waltemath2011sedml} provides co-simulation capabilities including heterogeneous time-stepping for SBML-compatible models but does not extend to ABM composition.}}{3}{table.1}\protected@file@percent }
 \newlabel{tab:standards}{{I}{3}{Comparison of SBML, CellML, NeuroML/LEMS, and OISA across capabilities relevant to multi-organ immune simulation. ``---'' = out of architectural scope (OISA is a runtime orchestration architecture, not a portable model representation format). Runtime~UQ: ensemble bounds (reported in the \texttt {ci\_95} schema field) originate in the stochastic ABM ensemble ($N\!=\!20$ parallel CC3D instances; reported as 5--95th percentile estimates) and propagate through the deterministic ODE via triple integration at each checkpoint (\S \ref {sec:valid-setup}). ``SBML L3'' refers to the format specification alone; SED-ML \cite {waltemath2011sedml} provides co-simulation capabilities including heterogeneous time-stepping for SBML-compatible models but does not extend to ABM composition}{table.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}The Composition Problem}{3}{subsection.3.2}\protected@file@percent }
 \newlabel{sec:composition}{{\mbox  {III-B}}{3}{The Composition Problem}{subsection.3.2}{}}
@@ -43,7 +57,7 @@
 \newlabel{sec:issl}{{\mbox  {IV-A}}{3}{The Internal Simulation State Log (ISSL)}{subsection.4.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}The Configuration Graph}{4}{subsection.4.2}\protected@file@percent }
 \newlabel{sec:configgraph}{{\mbox  {IV-B}}{4}{The Configuration Graph}{subsection.4.2}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces OISA workflow for the influenza coupling reference implementation. \textbf  {(a)}~Architecture diagram: Miao 2010 ODE (SBML, BIOMD0000000546) and Sego 2020 CC3D ABM (CompuCell3D 4.8.0, GitHub @5b7e42c) connected through the OISA Orchestrator, with ISSL signal arrows annotated with \texttt  {signal\_id} and biological units. \textbf  {(b)}~GSimT timeline for a representative 5-day window: ODE ticks every 6\,h, ABM ticks every 24\,h $=$ 72\,MCS, ISSL checkpoints (orange dots), and causal-ordering annotation (\texttt  {ABM.emit $\to $ ODE.accept $\to $ ODE.step $\to $ ODE.emit}) at the 24\,h boundary.}}{4}{figure.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces OISA workflow for the influenza coupling reference implementation. \textbf  {(a)}\nobreakspace  {}Architecture diagram: Miao 2010 ODE (SBML, BIOMD0000000546) and Sego 2020 CC3D ABM (CompuCell3D 4.8.0, GitHub @5b7e42c) connected through the OISA Orchestrator, with ISSL signal arrows annotated with \texttt  {signal\_id} and biological units. \textbf  {(b)}\nobreakspace  {}GSimT timeline for a representative 5-day window: ODE ticks every 6\,h, ABM ticks every 24\,h $=$ 72\,MCS, ISSL checkpoints (orange dots), and causal-ordering annotation (\texttt  {ABM.emit $\to $ ODE.accept $\to $ ODE.step $\to $ ODE.emit}) at the 24\,h boundary.}}{4}{figure.1}\protected@file@percent }
 \newlabel{fig:workflow}{{1}{4}{OISA workflow for the influenza coupling reference implementation. \textbf {(a)}~Architecture diagram: Miao 2010 ODE (SBML, BIOMD0000000546) and Sego 2020 CC3D ABM (CompuCell3D 4.8.0, GitHub @5b7e42c) connected through the OISA Orchestrator, with ISSL signal arrows annotated with \texttt {signal\_id} and biological units. \textbf {(b)}~GSimT timeline for a representative 5-day window: ODE ticks every 6\,h, ABM ticks every 24\,h $=$ 72\,MCS, ISSL checkpoints (orange dots), and causal-ordering annotation (\texttt {ABM.emit $\to $ ODE.accept $\to $ ODE.step $\to $ ODE.emit}) at the 24\,h boundary}{figure.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}The Orchestrator Engine}{4}{subsection.4.3}\protected@file@percent }
 \newlabel{sec:orchestrator}{{\mbox  {IV-C}}{4}{The Orchestrator Engine}{subsection.4.3}{}}
@@ -63,9 +77,9 @@
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {V-B}4}Coupled Biological Dynamics}{6}{subsubsection.5.2.4}\protected@file@percent }
 \citation{iwasaki2010innate}
 \citation{sauro2025cure}
-\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces 14-day coupled trajectory, key checkpoints. Median [ensemble range, $N\!=\!20$]. Day~0 is the state after the first 6\,h of ODE integration from $V_0\!=\!1{,}000$\,copies/mL. Full 14-point trajectory in \texttt  {results/issl\_14d/} (also Fig.~\ref {fig:trajectory}).}}{7}{table.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces 14-day coupled trajectory, key checkpoints. Median [ensemble range, $N\!=\!20$]. Day\nobreakspace  {}0 is the state after the first 6\,h of ODE integration from $V_0\!=\!1{,}000$\,copies/mL. Full 14-point trajectory in \texttt  {results/issl\_14d/} (also Fig.\nobreakspace  {}\ref  {fig:trajectory}).}}{7}{table.3}\protected@file@percent }
 \newlabel{tab:trajectory}{{III}{7}{14-day coupled trajectory, key checkpoints. Median [ensemble range, $N\!=\!20$]. Day~0 is the state after the first 6\,h of ODE integration from $V_0\!=\!1{,}000$\,copies/mL. Full 14-point trajectory in \texttt {results/issl\_14d/} (also Fig.~\ref {fig:trajectory})}{table.3}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Coupled 14-day trajectory generated from ISSL JSON checkpoint files in \texttt  {results/issl\_14d/}. \textbf  {(a)}~Reference-replicate viral load $V$ (log scale) and infected fraction $\mathrm  {Eps}/(\mathrm  {Ep}+\mathrm  {Eps})$; viral peak annotated at day~2.25. \textbf  {(b)}~Median \texttt  {n\_immune} across $N\!=\!20$ replicates with IQR shading and individual replicate trajectories.}}{7}{figure.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Coupled 14-day trajectory generated from ISSL JSON checkpoint files in \texttt  {results/issl\_14d/}. \textbf  {(a)}\nobreakspace  {}Reference-replicate viral load $V$ (log scale) and infected fraction $\mathrm  {Eps}/(\mathrm  {Ep}+\mathrm  {Eps})$; viral peak annotated at day\nobreakspace  {}2.25. \textbf  {(b)}\nobreakspace  {}Median \texttt  {n\_immune} across $N\!=\!20$ replicates with IQR shading and individual replicate trajectories.}}{7}{figure.2}\protected@file@percent }
 \newlabel{fig:trajectory}{{2}{7}{Coupled 14-day trajectory generated from ISSL JSON checkpoint files in \texttt {results/issl\_14d/}. \textbf {(a)}~Reference-replicate viral load $V$ (log scale) and infected fraction $\mathrm {Eps}/(\mathrm {Ep}+\mathrm {Eps})$; viral peak annotated at day~2.25. \textbf {(b)}~Median \texttt {n\_immune} across $N\!=\!20$ replicates with IQR shading and individual replicate trajectories}{figure.2}{}}
 \newlabel{sec:valid-sens}{{\mbox  {V-B}5}{7}{Parameter Sensitivity (coupling parameters)}{subsubsection.5.2.5}{}}
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {\mbox  {V-B}5}Parameter Sensitivity (coupling parameters)}{7}{subsubsection.5.2.5}\protected@file@percent }

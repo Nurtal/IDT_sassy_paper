@@ -119,7 +119,7 @@ kinetics consistent with Miao 2010 (peak
 $V\!=\!9.0{\times}10^{6}$\,copies/mL at day~2.25, clearance to
 0.05\% of peak by day~13.75) and spatial immune recruitment (median
 $n_{\text{immune}}\!=\!6$ [IQR: 5--7] at day~1, growing to 57
-[IQR: 53--59] at day~13), with immune temporal lag and
+[IQR: 52--59] at day~13), with immune temporal lag and
 CTL-mediated clearance acceleration emerging from the bidirectional
 coupling. This validation targets orchestration correctness --- signal
 routing, causal ordering, and runtime UQ propagation --- not biological
@@ -388,45 +388,46 @@ readability and machine-parsable semantic annotation via linked-data
 context, letting orchestrator components parse records without prior
 knowledge of any model's internal variable names.
 
-\textit{Box 1 --- ISSL excerpt, Miao 2010 ODE adapter (day 1 checkpoint,
-GSimT $=$ 86{,}400\,s):}
+\textit{Box 1 --- ISSL excerpt, ensemble-aggregated Miao 2010 ODE
+checkpoint at day~1 (\texttt{count} $=$ median, \texttt{ci\_95} $=$
+5th--95th percentile over $N\!=\!20$ replicates):}
 \begin{lstlisting}[language=json]
 {
  "envelope": {
    "model_id": "miao2010_ode",
    "model_version": "BIOMD0000000546",
-   "sim_time_s": 86400,
+   "sim_time_s": 108000,
    "formalism": "ODE",
    "schema_uri": "schemas/issl_v1.schema.json"
  },
  "continuous_state": [
-   {"label":"Ep", "count":532048.1, "unit":"cells",
-    "ci_95":[530102.3, 533994.0]},
-   {"label":"Eps","count":39204.6,  "unit":"cells",
-    "ci_95":[37801.2, 40608.0]},
+   {"label":"Ep", "count":545366.0, "unit":"cells",
+    "ci_95":[545357.0, 545372.0]},
+   {"label":"Eps","count":31064.6,  "unit":"cells",
+    "ci_95":[31041.3, 31098.4]},
    {"label":"V",  "count":3.29e5,   "unit":"copies/mL",
-    "ci_95":[3.11e5, 3.47e5]}
+    "ci_95":[3.285e5, 3.289e5]}
  ],
  "export_signals": [
    {"signal_id":"miao2010.viral_load",
     "value":3.29e5,"unit":"copies/mL",
-    "ci_95":[3.11e5,3.47e5],"transfer_lag_s":null}
+    "ci_95":[3.285e5,3.289e5],"transfer_lag_s":null}
  ],
  "watchdog":{"status":"OK","divergence_score":0.0}
 }
 \end{lstlisting}
 
-\noindent \textit{Note on \texttt{sim\_time\_s}:} This field records the
-clock value \emph{after} the step completes --- i.e., the simulation
-time at which the emitted state is valid.
+\noindent \textit{Note on \texttt{sim\_time\_s}:} the ODE-local clock
+\emph{after} the step completes; at the day~1 boundary (86{,}400\,s) it
+reads 108{,}000\,s, one 6\,h ODE step beyond.
 
 The ABM adapter emits the same ISSL envelope with
 \texttt{formalism}=\texttt{"ABM"}, \texttt{model\_version} pinned to
 \texttt{covid-tissue-models@5b7e42c+OISA\_bridge}, a \texttt{grid}
 field (\texttt{"90x90x2"}), and export signals
 \texttt{sego2020.immune\_cell\_count} and
-\texttt{.recruitment\_cytokine} (example day-1: 7 cells [5--8], 700 AU
-[500--800]).
+\texttt{.recruitment\_cytokine} (example day-1: median 6 immune
+agents [ensemble range 2--10]).
 
 The SBML file \texttt{BIOMD0000000546\_model1.xml} is loaded verbatim by
 libroadrunner; no XML modifications are made. The adapter calls
@@ -511,7 +512,7 @@ provenance); (6)~transfer dispatcher (\texttt{SignalQueue});
 (8)~output aggregator (GIS $\to$ checkpoint log + UQ propagation);
 (9)~watchdog (health poll, pause/resume/rollback). Components 1, 4, 5,
 9 have their core functionality implemented and covered by the
-published test suite (67 tests); sub-capabilities flagged as deferred
+published test suite (68 tests); sub-capabilities flagged as deferred
 (OOD detection, \texttt{ROLLBACK} recovery, PROV-O URIs,
 conservation-violation auto-rollback) are interface-specified but not
 yet in the test suite.
@@ -695,9 +696,9 @@ every 6\,h tick. Causal order at each 24\,h boundary:
 \texttt{ABM.emit() $\to$ ODE.accept() $\to$ ODE.step() $\to$
 ODE.emit()} (queued for next ABM IPC cycle).
 
-\textbf{Test suite.} Validation is structured as 67 automated tests
+\textbf{Test suite.} Validation is structured as 68 automated tests
 (pytest): 23 ODE adapter tests, 20 ABM adapter tests, 8 blood transit
-transfer model tests, and 16 integration tests. All tests are
+transfer model tests, and 17 integration tests. All tests are
 traceable to published figures or parameter tables; UQ tests verify
 that \texttt{ci\_95} fields are non-null when ensemble input is
 present and that tighter input bounds produce narrower output bounds.
@@ -705,7 +706,7 @@ present and that tighter input bounds produce narrower output bounds.
 \subsection{Validation Results}
 
 \subsubsection{Non-Invasive Adapter Verification}
-All 67 automated tests pass. The Miao 2010 adapter initialises
+All 68 automated tests pass. The Miao 2010 adapter initialises
 $T_{E_T}=0$ and $k_E=2{\times}10^{-5}$ (Table~1 constant), delegating
 all integration to roadrunner with no SBML edits. The
 \texttt{accept\_issl()} method changes only the $T_{E_T}$ parameter
@@ -940,8 +941,8 @@ adapter-only integration.
 OISA specifications, ISSL JSON Schema
 (\texttt{schemas/issl\_v1.schema.json}, Draft 2020-12), reference
 orchestrator, adapters, configuration graph, 14-day ISSL data
-(\texttt{results/issl\_14d/}, 280 files), sensitivity grid, and the full
-test suite (67 adapter + 51 paper--data tests) are at
+(\texttt{results/issl\_14d/}, 1{,}120 files), sensitivity grid, and the full
+test suite (68 adapter + 51 paper--data tests) are at
 [\emph{repository URL to be added prior to submission}]. Miao 2010 SBML
 is from BioModels unmodified; Sego 2020 from
 \texttt{covid-tissue-models}@\texttt{5b7e42c} (CompuCell3D 4.8.0). The
