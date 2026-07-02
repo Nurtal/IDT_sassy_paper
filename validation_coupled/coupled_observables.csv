@@ -1,0 +1,5 @@
+observable,median,ci95_lo,ci95_hi,n_replicates
+O1_viral_peak_day,2.25,2.25,2.25,20
+O2_viral_clearance_day_lt1pct,9.5,9.5,9.75,20
+O3_immune_recruitment_onset_day,1.0,1.0,1.0,20
+O4_recruitment_delay_day,0.5,0.5,0.5,20

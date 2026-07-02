@@ -1,0 +1,86 @@
+{
+  "model": "TregModel_InitPop (CD4+ T-cell / Treg differentiation Boolean network)",
+  "files": [
+    "TregModel_InitPop.bnd",
+    "TregModel_InitPop_ActTCR2_TGFB.cfg"
+  ],
+  "source": "colomoto/pyMaBoSS reference test suite (github.com/colomoto/pyMaBoSS, path test/)",
+  "engine": "cmaboss (compiled MaBoSS engine) 1.0.0b32",
+  "n_nodes": 35,
+  "output_nodes": [
+    "FOXP3",
+    "Proliferation",
+    "IL2",
+    "STAT5"
+  ],
+  "tunable_environmental_inputs": {
+    "$ActTCR2": "TCR activation strength (antigen / viral-load proxy)",
+    "$ActTGFB": "external TGF-beta level",
+    "$ExtIL2": "external IL-2 level"
+  },
+  "master_regulator_logic": {
+    "FOXP3": "FOXO1 & NFAT & AP1 & STAT5 & SMAD3",
+    "Proliferation": "!FOXO1",
+    "STAT5": "JAK3 (downstream of IL2R_b1, gated by $ExtIL2)"
+  },
+  "attractor_checks": {
+    "resting_low_antigen": {
+      "inputs": {
+        "ActTCR2": 0.05,
+        "ActTGFB": 0.1,
+        "ExtIL2": 0.0
+      },
+      "FOXP3": [
+        0.0,
+        0.0
+      ],
+      "STAT5": [
+        0.0,
+        0.0
+      ],
+      "Proliferation": [
+        0.185,
+        0.014
+      ],
+      "IL2": [
+        0.277,
+        0.015
+      ]
+    },
+    "activated_high_antigen": {
+      "inputs": {
+        "ActTCR2": 0.9,
+        "ActTGFB": 1.0,
+        "ExtIL2": 1.0
+      },
+      "FOXP3": [
+        0.581,
+        0.015
+      ],
+      "STAT5": [
+        1.0,
+        0.023
+      ],
+      "Proliferation": [
+        0.316,
+        0.011
+      ],
+      "IL2": [
+        0.0,
+        0.0
+      ]
+    },
+    "IL2_requirement": "FOXP3 activates only when ExtIL2>0 (IL2/STAT5 axis required for FOXP3 induction) \u2014 consistent with established Treg immunology"
+  },
+  "native_uq_scaling": {
+    "description": "MaBoSS sampling error on node probability decays as 1/sqrt(sample_count) => genuine Monte-Carlo aleatoric UQ, native to the Boolean formalism",
+    "FOXP3_err_times_sqrtN": {
+      "1000": 2.12,
+      "4000": 2.11,
+      "16000": 2.181,
+      "64000": 2.194
+    }
+  },
+  "coupling_role_in_OISA": "Antigen load (from ODE viral_load / ABM infected state) -> $ActTCR2; Boolean output FOXP3/Proliferation -> immune-cell phenotype fractions fed back to ABM.",
+  "citation_status": "Model distributed as reference artifact in pyMaBoSS test suite; primary biological publication to be confirmed by domain expert (N. Foulquier). NOT fabricated here."
+}

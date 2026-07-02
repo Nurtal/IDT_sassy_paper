@@ -2,3 +2,17 @@ venv/*
 __pycache__/
 *.pyc
 .pytest_cache/
+# LaTeX build
+.texbuild/
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.toc
+paper/*.fls
+paper/*.fdb_latexmk
+paper/P*.log
+paper/R*.log
+paper/BIB.log
+paper/build.log

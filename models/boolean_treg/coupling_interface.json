@@ -1,0 +1,58 @@
+{
+  "title": "OISA coupling interface \u2014 Boolean (MaBoSS Treg) formalism",
+  "formalism": "continuous-time Boolean (MaBoSS), quasi-steady-state per GSimT tick",
+  "timescale_justification": {
+    "intracellular_signalling": "minutes-hours (fast)",
+    "tissue_dynamics_GSimT": "6 h tick",
+    "QSS_validity": "FOXP3 attractor probability stable from t=30 to t=80 a.u. (0.585 plateau) => relax-to-attractor each tick is valid; Boolean equilibrates within one GSimT tick",
+    "slow_variable_note": "Proliferation is an accumulator (0.33->0.61 over t=30->80); read as rate, not attractor"
+  },
+  "inbound_coupling": {
+    "description": "Antigen/infection signal from ODE(viral) or ABM(infected fraction) drives Boolean environmental inputs.",
+    "source_signals": [
+      "miao2010.infected_fraction",
+      "miao2010.viral_load"
+    ],
+    "map": {
+      "$ActTCR2": "clip(infected_fraction, 0.05, 1.0)  # antigen -> TCR activation (continuous rate, native to model)",
+      "$ExtIL2": "clip(infected_fraction, 0.0, 1.0)   # graded inflammatory IL-2 availability",
+      "$ActTGFB": "1.0  # tolerogenic tissue TGF-beta assumed present"
+    },
+    "mode": "continuous-rate (NOT thresholding) \u2014 preserves the model's native continuous istate semantics",
+    "rationale": "Graded $ExtIL2 yields graded FOXP3 attractor probability (0->0.58) with native UQ peaking mid-decision (Bernoulli p(1-p)); thresholding would destroy this."
+  },
+  "outbound_coupling": {
+    "description": "Boolean cell-fate outputs feed back as quantitative phenotype fractions.",
+    "export_signals": [
+      {
+        "signal_id": "maboss_treg.treg_fraction",
+        "label": "FOXP3",
+        "source_node": "FOXP3",
+        "meaning": "fraction of CD4+ T cells committing to regulatory (immunosuppressive) Treg phenotype",
+        "ci_95": "NATIVE from MaBoSS sampling error [p2.5,p97.5] via Bernoulli/Wilson on sample_count"
+      },
+      {
+        "signal_id": "maboss_treg.proliferation",
+        "label": "Proliferation",
+        "source_node": "Proliferation",
+        "meaning": "effector-proliferation propensity"
+      }
+    ],
+    "feedback_target": {
+      "consumer": "ODE (Miao2010)",
+      "mechanism": "Treg suppress effector CTL function: effective killing scaled by (1 - w*treg_fraction)",
+      "note": "immunosuppression modulates viral clearance \u2014 closes ODE<->Boolean loop"
+    }
+  },
+  "native_uq": {
+    "type": "aleatoric (Monte-Carlo sampling error), native to Boolean formalism",
+    "estimator": "ci_95 = [p2.5,p97.5] from Wilson interval on FOXP3 probability at given sample_count",
+    "contrast": "ODE/ABM ci_95 are post-hoc ensemble/bounds; Boolean ci_95 is intrinsic to one run",
+    "bernoulli_shape": "error maximal at p=0.5 (ambiguous decision), minimal at p in {0,1}"
+  },
+  "scheduling": {
+    "boolean_tick": "every GSimT tick (6 h): accept antigen signal -> relax to attractor -> emit treg_fraction",
+    "causal_order": "ODE/ABM emit antigen (tick N) -> Boolean accepts, relaxes, emits treg_fraction (tick N) -> ODE accepts suppression (tick N+1, one-tick lag) \u2014 same pattern as existing ABM<->ODE loop",
+    "transfer_lag_s": "optional; Treg suppression onset lag can be encoded via export_signals[].transfer_lag_s (reuses SignalQueue primitive)"
+  }
+}

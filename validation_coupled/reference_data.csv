@@ -1,0 +1,5 @@
+observable,oisa_median_day,oisa_ci95_day,published_value,source,independence_note
+O1_viral_peak_day,2.25,"[2.25, 2.25]",~2 d pi (peaks after ~2 d),"Myers & Smith et al. 2021 (eLife, BALB/cJ, 75 TCID50 PR8)","anchor only; NOT credited (Miao2010 calibrated on viral load, Murphy 1973)"
+O2_viral_clearance_day_lt1pct,9.50,"[9.50, 9.75]","8-9 d pi (60% cleared by d8, 40% by d9)",Myers & Smith et al. 2021 (eLife),EMERGENT coupled prediction; coupling not fit to any joint viral+immune series
+O3_immune_recruitment_onset_day,1.00,"[1.00, 1.00]","early phase, within 1-2 d pi (innate accumulation)","Lv et al. 2014 (Virol J, PR8) / consensus","EMERGENT; Sego2020 recruitment machinery from SARS-CoV-2 (Getz 2020), not influenza-fit"
+O4_recruitment_delay_day,0.50,"[0.50, 0.50]",rapid innate onset (<1-2 d after viral rise),Lv et al. 2014 (Virol J) / consensus,EMERGENT coupling property (transfer lag + recruitment response)

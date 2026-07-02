@@ -31,7 +31,7 @@
         },
         "formalism": {
           "type": "string",
-          "enum": ["ODE", "ABM", "PDE", "NEURAL_SURROGATE", "HYBRID"],
+          "enum": ["ODE", "ABM", "PDE", "BOOLEAN", "NEURAL_SURROGATE", "HYBRID"],
           "description": "Formalism tag. Orchestrator components read this before processing outputs."
         },
         "schema_uri": {
