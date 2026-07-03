@@ -62,20 +62,28 @@
 %% --- nicer inline fractions -----------------------------------
 \newcommand{\ttilde}{\raisebox{-0.5ex}{\textasciitilde}}
 
+%% --- compact float / caption spacing (space reclamation) ------
+\setlength{\textfloatsep}{6pt plus 2pt minus 2pt}
+\setlength{\dbltextfloatsep}{6pt plus 2pt minus 2pt}
+\setlength{\floatsep}{5pt plus 2pt minus 2pt}
+\setlength{\dblfloatsep}{5pt plus 2pt minus 2pt}
+\setlength{\intextsep}{5pt plus 2pt minus 2pt}
+\setlength{\abovecaptionskip}{3pt}
+\setlength{\belowcaptionskip}{0pt}
+
 \begin{document}
 
 %%==============================================================
 %% Title & author block
 %%==============================================================
 \title{%
-OISA: A Formalism-Agnostic Orchestration Architecture for\\
-Composing Published Immune Models Without Modification
+OISA: Orchestrating Published Immune Models Without Modification
 }
 
 \author{%
 \IEEEauthorblockN{Nathan Foulquier}
 \IEEEauthorblockA{%
-LBAI --- Laboratoire de Biologie des Lymphocytes Auto-Immuns,
+LBAI, Laboratoire de Biologie des Lymphocytes Auto-Immuns,
 Inserm U1227, Universit\'e de Bretagne Occidentale\\
 Centre de Donn\'ees Cliniques, CHU de Brest\\
 Brest, France\\
@@ -91,31 +99,30 @@ Email: nathan.foulquier@univ-brest.fr}
 Computational immunology has produced high-quality mechanistic models of
 individual immune compartments, yet composing ODE and agent-based models
 (ABMs) across formalism boundaries still requires bespoke re-engineering.
-Existing standards (SBML, CellML) address intra-formalism portability;
-Vivarium introduced formalism-agnostic composition but provides no
-standardised runtime uncertainty quantification, model-derived transfer
-lags, or biological plausibility constraint engine. We propose OISA ---
-the Orchestrated Immune Simulation Architecture --- comprising (i) the
-ISSL, a formalism-agnostic JSON-LD checkpoint format with embedded
-runtime UQ (uncertainty bounds propagated at every tick via the
-\texttt{ci\_95} schema field); (ii) a declarative configuration graph
-with support for model-derived transfer lags on edges; and (iii) an
-orchestrator engine with global clock synchronisation, causal DAG
-resolution, and biological plausibility enforcement.
+Existing standards (SBML, CellML) address intra-formalism portability, and
+prior formalism-agnostic composition frameworks provide no standardised
+runtime uncertainty quantification, model-derived transfer lags, or
+biological plausibility constraint engine. We propose OISA, the Orchestrated
+Immune Simulation Architecture, comprising (i) the ISSL, a
+formalism-agnostic JSON-LD checkpoint format with embedded runtime UQ
+(uncertainty bounds propagated at every tick via the \texttt{ci\_95} schema
+field); (ii) a declarative configuration graph supporting model-derived
+transfer lags on edges; and (iii) an orchestrator engine with global-clock
+synchronisation, causal DAG resolution, and biological plausibility
+enforcement.
 
 We validate OISA by coupling two independently published influenza
-models --- Miao \emph{et al.} 2010 ODE (SBML BIOMD0000000546,
+models, Miao \emph{et al.} 2010 ODE (SBML BIOMD0000000546,
 unmodified) and the full spatial Sego \emph{et al.} 2020 ABM
 (CompuCell3D 4.8.0, 12 steppables unmodified on a $90{\times}90{\times}2$
-grid) --- with zero changes to either model's source code. Adapter
+grid), with zero changes to either model's source code. Adapter
 layers total \ttilde{}300 lines. The ABM runs as a rolling ensemble of
 $N\!=\!20$ parallel CC3D instances (concurrent subprocesses, distinct
-MersenneTwister seeds); runtime uncertainty bounds --- reported as
-the 2.5th--97.5th percentile across $N\!=\!20$ stochastic CC3D replicates
-(2.5--97.5th percentile, see \S\ref{sec:valid-setup}) --- originate in the
-stochastic ABM and propagate through the ODE at each checkpoint. Over a
-14-day simulation (56 checkpoints), the coupled system reproduces viral
-kinetics consistent with Miao 2010 (peak
+MersenneTwister seeds); runtime uncertainty bounds, the 2.5th--97.5th
+percentile across the $N\!=\!20$ replicates (\S\ref{sec:valid-setup}),
+originate in the stochastic ABM and propagate through the ODE at each
+checkpoint. Over a 14-day simulation (56 checkpoints), the coupled system
+reproduces viral kinetics consistent with Miao 2010 (peak
 $V\!=\!9.0{\times}10^{6}$\,copies/mL at day~2.25, clearance to
 0.05\% of peak by day~13.75) and spatial immune recruitment (median
 $n_{\text{immune}}\!=\!6$ [IQR: 5--7] at day~1, growing to 57
@@ -123,19 +130,18 @@ $n_{\text{immune}}\!=\!6$ [IQR: 5--7] at day~1, growing to 57
 CTL-mediated clearance acceleration emerging from the bidirectional
 coupling. To test that this composition is structural rather than an
 artefact of the ODE--ABM pair, we further couple a third, categorically
-distinct formalism --- a continuous-time stochastic Boolean signalling
-network (MaBoSS \texttt{TregModel}, 35 nodes) --- through the same
-contract; each formalism reports its native uncertainty (ensemble
-percentiles for the ODE/ABM, a Wilson interval for the Boolean model)
-and these compose, verifiably, into the coupled output, giving what is
-to our knowledge the first heterogeneous cross-formalism runtime UQ in
-an immune multi-model simulation. This validation targets orchestration
-correctness --- signal routing, causal ordering, and runtime UQ
-propagation. As a secondary check, emergent temporal features of the
-coupled system (immune-recruitment onset, viral-clearance day) show
-face-validity against independent published murine influenza kinetics;
-this is not biological prediction, as no parameter of the coupled
-configuration was fit to simultaneous in-vivo measurements.
+distinct formalism, a continuous-time stochastic Boolean signalling
+network (MaBoSS \texttt{TregModel}, 35 nodes), through the same contract;
+each formalism reports its native uncertainty (ensemble percentiles for the
+ODE/ABM, a Wilson interval for the Boolean model) and these compose,
+verifiably, into the coupled output, giving what is to our knowledge the
+first heterogeneous cross-formalism runtime UQ in an immune multi-model
+simulation. The validation targets orchestration correctness (signal
+routing, causal ordering, UQ propagation); as a secondary check, emergent
+temporal features (immune-recruitment onset, viral-clearance day) show
+face-validity against independent published murine influenza kinetics, not
+biological prediction, as no coupled-configuration parameter was fit to
+simultaneous in-vivo measurements.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -147,70 +153,61 @@ computational immunology; CompuCell3D.
 %%==============================================================
 \section{Introduction}
 %%==============================================================
-Immune-mediated diseases are inherently multi-compartmental phenomena.
-Influenza infection unfolds across scales: within a single tissue, viral
-replication dynamics interact with innate immune cytokine signalling and
-adaptive CTL recruitment, each operating on different timescales and
-representable in different formalisms. ODEs are natural for systemic
-viral kinetics and antibody dynamics, while ABMs are necessary where
-stochastic single-cell fate decisions dominate, as in tissue-level
-immune recruitment. The literature has consequently produced a
-collection of high-quality compartment-specific models that cannot
-communicate with one another.
+Immune-mediated diseases are inherently multi-compartmental. Influenza
+unfolds across scales: viral replication interacts with innate cytokine
+signalling and adaptive CTL recruitment, each on a different timescale and
+best served by a different formalism, ODEs for systemic viral kinetics,
+ABMs where stochastic single-cell fate decisions dominate tissue-level
+recruitment. The literature has consequently produced high-quality
+compartment-specific models that cannot communicate with one another.
 
 Three bodies of prior work address adjacent problems. The COMBINE
 standards ecosystem (SBML~\cite{hucka2015sbml},
 CellML~\cite{clerx2020cellml}, SED-ML~\cite{waltemath2011sedml})
-provides portable representations for individual models but addresses
-intra-formalism composition only: models must be expressed in the same
-declarative format, ruling out ABMs written in Python or Julia.
-Vivarium~\cite{agmon2022vivarium} introduced formalism-agnostic
-composition with hierarchical stores and dynamic topology (discussed in
-\S\ref{sec:related-vivarium}), but provides no standardised runtime UQ
-propagation, model-derived transfer lags, or biological plausibility
-constraint engine. The CURE guidelines~\cite{sauro2025cure} define what
-properties a credible model should exhibit --- Credibility,
-Understandability, Reproducibility, Extensibility --- but prescribe no
-runtime infrastructure for heterogeneous composition (note:
-\cite{sauro2025cure} is currently available as a preprint pending peer
-review). The cross-formalism, multi-timescale coordination problem
-remains open.
+provides portable model representations but addresses intra-formalism
+composition only: models must share one declarative format, ruling out
+ABMs written in Python or Julia. Vivarium~\cite{agmon2022vivarium}
+introduced formalism-agnostic composition
+(\S\ref{sec:related-vivarium}) but provides no standardised runtime UQ
+propagation, model-derived transfer lags, or plausibility constraint
+engine. The CURE guidelines~\cite{sauro2025cure} (Credibility,
+Understandability, Reproducibility, Extensibility) define what a credible
+model should exhibit but prescribe no runtime infrastructure for
+heterogeneous composition. The cross-formalism, multi-timescale coordination
+problem remains open.
 
-We propose OISA --- the Orchestrated Immune Simulation Architecture ---
-to fill this gap. OISA provides three components: the ISSL
-formalism-agnostic state interface (\S\ref{sec:issl}), a declarative
-configuration graph (\S\ref{sec:configgraph}), and an orchestrator
-engine (\S\ref{sec:orchestrator}). We demonstrate the architecture by
-coupling two independently published influenza models, using the full
-spatial Sego 2020 CompuCell3D ABM without any modification to its 12
-biological steppables, and evaluate causal ordering, signal flow
-correctness, and biological plausibility in \S\ref{sec:validation}.
+We propose OISA, the Orchestrated Immune Simulation Architecture,
+to fill this gap, in three components: the ISSL formalism-agnostic state
+interface (\S\ref{sec:issl}), a declarative configuration graph
+(\S\ref{sec:configgraph}), and an orchestrator engine
+(\S\ref{sec:orchestrator}). We demonstrate it by coupling two
+independently published influenza models, using the full spatial Sego
+2020 CompuCell3D ABM without modifying its 12 biological steppables, and
+evaluate causal ordering, signal-flow correctness, and biological
+plausibility in \S\ref{sec:validation}.
 
 \medskip\noindent The contributions of this work are:
 \begin{enumerate}
   \item \textbf{The ISSL}, a formalism-agnostic checkpoint format with
-        embedded provenance and runtime uncertainty quantification
-        (ensemble bounds propagated at each tick from stochastic ABM
-        through deterministic ODE via the \texttt{ci\_95} schema field);
-  \item \textbf{A declarative configuration graph} with support for
-        model-derived transfer lags on edges, where a lightweight
-        transfer model computes the signal delay dynamically rather
-        than using a fixed constant;
-  \item \textbf{A runtime orchestrator} with global clock
+        embedded provenance and runtime UQ (ensemble bounds propagated
+        each tick from stochastic ABM through deterministic ODE via the
+        \texttt{ci\_95} field);
+  \item \textbf{A declarative configuration graph} supporting
+        model-derived transfer lags on edges (delay computed dynamically
+        by a lightweight transfer model, not a fixed constant);
+  \item \textbf{A runtime orchestrator} with global-clock
         synchronisation, causal DAG resolution, and biological
-        plausibility constraint enforcement;
-  \item \textbf{Empirical demonstration} that two independently
-        published models (Miao 2010 SBML ODE + Sego 2020 CC3D spatial
-        ABM) can be composed with zero source modifications using
-        \ttilde{}300 lines of adapter code, with runtime UQ propagated
-        end-to-end;
+        plausibility enforcement;
+  \item \textbf{Empirical demonstration} that two independently published
+        models (Miao 2010 SBML ODE + Sego 2020 CC3D spatial ABM) compose
+        with zero source modifications using \ttilde{}300 lines of adapter
+        code, UQ propagated end-to-end;
   \item \textbf{Cross-formalism generalisation}: a third, categorically
-        distinct formalism (a stochastic Boolean MaBoSS signalling
-        network) coupled through the same contract, demonstrating
-        heterogeneous cross-formalism uncertainty propagation (ensemble
-        percentiles for the ODE/ABM and a native Wilson interval for the
-        Boolean model) --- to our knowledge the first such demonstration
-        in immune multi-model simulation.
+        distinct formalism (a stochastic Boolean MaBoSS network) coupled
+        through the same contract, ensemble percentiles for the
+        ODE/ABM, a native Wilson interval for the Boolean model, to
+        our knowledge the first such demonstration in immune multi-model
+        simulation.
 \end{enumerate}
 
 %%==============================================================
@@ -220,105 +217,78 @@ correctness, and biological plausibility in \S\ref{sec:validation}.
 \subsection{Multi-Formalism Immune Simulation Frameworks}
 \label{sec:related-vivarium}
 
-Several frameworks have addressed multi-scale composition in
-computational biology. Vivarium~\cite{agmon2022vivarium} introduced a
-port-based, formalism-agnostic composition interface with hierarchical
-stores, dynamic topology changes at runtime, and a mature Python
-ecosystem. OISA shares Vivarium's design principle of
-formalism-agnostic composition but addresses three capabilities not
-present in the Vivarium architecture: (i) a standardised inter-model
-signal format (ISSL) embedding runtime uncertainty quantification
-(ensemble bounds propagated at each checkpoint from a rolling ABM
-ensemble through the ODE via the \texttt{ci\_95} schema field), (ii)
-model-derived transfer lags on edges (where a lightweight transfer
-model computes the signal delay dynamically rather than using a fixed
-constant), and (iii) a biological plausibility constraint engine
-operating at the composition level (mass conservation, parameter
-bounds, and divergence monitoring across coupled models). Vivarium's
-store-based data sharing and dynamic topology management are
-complementary capabilities not replicated by OISA.
+Several frameworks address multi-scale composition in computational
+biology. Vivarium~\cite{agmon2022vivarium} introduced a port-based,
+formalism-agnostic composition interface with hierarchical stores,
+runtime topology changes, and a mature Python ecosystem. OISA shares
+its formalism-agnostic principle but adds three capabilities absent
+from Vivarium: (i) a standardised inter-model signal format (ISSL)
+embedding runtime UQ (ensemble bounds propagated per checkpoint from
+the ABM through the ODE via the \texttt{ci\_95} field), (ii)
+model-derived transfer lags on edges, and (iii) a biological
+plausibility constraint engine at the composition level (mass
+conservation, parameter bounds, divergence monitoring); Vivarium's
+store-based sharing and dynamic topology are complementary capabilities
+OISA does not replicate.
 
 PhysiCell~\cite{ghaffarizadeh2018physicell} and
-PhysiBoSS~\cite{ponce2023physiboss} are the closest prior art to the
-three-formalism configuration reported here: PhysiBoSS embeds MaBoSS
-Boolean signalling networks~\cite{stoll2017maboss} inside PhysiCell
-agents, coupling a continuous-time stochastic Boolean formalism to an
-agent-based one. The coupling, however, is \emph{intra-engine}: the
-Boolean layer is compiled into the ABM and shares its address space,
-timestep, and build system, so the two formalisms cannot be developed,
-versioned, or uncertainty-quantified independently. OISA instead
-couples an \emph{externally published} MaBoSS model
-(\texttt{TregModel}, distributed in the pyMaBoSS reference
-suite~\cite{pymaboss}) to the Miao2010 ODE and the Sego2020
-ABM through the ISSL contract alone, each model running unmodified in
-its own engine. Because PhysiBoSS fuses the formalisms at compile time
-it exposes a single homogeneous stochastic-ABM uncertainty; OISA
-preserves and \emph{propagates each formalism's native uncertainty
-definition across the coupling boundary} (\S\ref{sec:xf-uq}). The rapid
-community-driven SARS-CoV-2 tissue simulator~\cite{getz2020sarscov2}
---- from which Sego \emph{et al.} 2020~\cite{sego2020modular} derives
---- demonstrated that tissue-scale ABMs can be developed and shared
-rapidly, but required a uniform CompuCell3D substrate for all
-constituent models; coupling to external ODE models required bespoke
-adapter code outside the framework. Miao \emph{et
-al.} 2010~\cite{miao2010influenza} provided a rigorously calibrated ODE
-model of murine influenza kinetics embedded in the BioModels database
-(BIOMD0000000546); no standard mechanism exists to couple it to
-published tissue ABMs without rewriting either model. OISA demonstrates
-that such coupling is achievable by adding only a thin Emit/Accept
-interface layer to each model, with the full CC3D spatial ABM running
-unmodified as an independent process.
+PhysiBoSS~\cite{ponce2023physiboss} are the closest prior art: PhysiBoSS
+embeds MaBoSS Boolean networks~\cite{stoll2017maboss} inside PhysiCell
+agents. The coupling is \emph{intra-engine}, the Boolean layer is compiled
+into the ABM and shares its address space, timestep, and build system, so
+the formalisms cannot be developed, versioned, or uncertainty-quantified
+independently, and it exposes a single homogeneous stochastic-ABM
+uncertainty. OISA instead couples an \emph{externally published} MaBoSS
+model (\texttt{TregModel}, from the pyMaBoSS reference
+suite~\cite{pymaboss}) to the Miao2010 ODE and Sego2020 ABM through the
+ISSL contract alone, each running unmodified in its own engine, and
+\emph{propagates each formalism's native uncertainty across the coupling
+boundary} (\S\ref{sec:xf-uq}). The community SARS-CoV-2 tissue
+simulator~\cite{getz2020sarscov2}, from which Sego \emph{et al.}
+2020~\cite{sego2020modular} derives, showed tissue-scale ABMs can be shared
+rapidly but required a uniform CompuCell3D substrate, coupling to external
+ODEs needing bespoke adapter code outside the framework. Miao \emph{et al.}
+2010~\cite{miao2010influenza} provided a calibrated ODE model of murine
+influenza kinetics in BioModels (BIOMD0000000546) with no standard
+mechanism to couple it to tissue ABMs without rewriting either model. OISA
+achieves such coupling by adding only a thin Emit/Accept layer to each, the
+full CC3D spatial ABM running unmodified as an independent process.
 
 \subsection{Simulation Interoperability Standards}
 
-The COMBINE standards ecosystem~\cite{bergmann2014combine} has achieved
-significant progress on individual model portability.
-SBML~\cite{hucka2015sbml} has accumulated over 1{,}000 curated models in
-BioModels; CellML~\cite{clerx2020cellml} has analogous achievements in
-cardiac and physiological modelling; SED-ML~\cite{waltemath2011sedml}
-provides a standard for encoding simulation experiments. Table~\ref{tab:standards}
-compares these standards against OISA. The critical distinction is
-architectural: SBML, CellML, and NeuroML address \emph{intra-formalism}
-interoperability --- exchange between tools supporting the same format
---- while OISA addresses \emph{inter-formalism} interoperability:
-composition of models using fundamentally different formalisms,
-timescales, and output semantics. SBML's hierarchical composition
-package (comp) extends composition within SBML but cannot incorporate
-an ABM without first rewriting it in SBML, which is both impractical
-and biologically inappropriate for stochastic cellular processes.
+The COMBINE standards ecosystem~\cite{bergmann2014combine} has advanced
+individual-model portability: SBML~\cite{hucka2015sbml} has over 1{,}000
+curated BioModels entries, CellML~\cite{clerx2020cellml} analogous cardiac
+and physiological coverage, and SED-ML~\cite{waltemath2011sedml} a standard
+for encoding simulation experiments (Table~\ref{tab:standards}). The
+distinction is architectural: SBML, CellML, and NeuroML address
+\emph{intra-formalism} interoperability, exchange between tools sharing one
+format, while OISA addresses \emph{inter-formalism} composition of models
+with different formalisms, timescales, and output semantics. SBML's
+composition package (comp) extends composition within SBML but cannot
+incorporate an ABM without rewriting it, impractical and biologically
+inappropriate for stochastic cellular processes.
 
-BioSimulators~\cite{shaikh2022biosimulators} and the SED-ML/COMBINE
-stack standardise \emph{how a simulation experiment is described and
-re-executed} across engines, and can drive heterogeneous solvers via a
-common execution API. Their scope is reproducible single-model (or
-intra-formalism co-simulation) execution; they do not define a runtime
-inter-model signal carrying an uncertainty interval, and they do not
-address the composition of a deterministic ODE, a stochastic ABM, and a
-stochastic Boolean model into one coupled run whose outputs carry
-uncertainty inherited from all three. The specific gap OISA fills is
-therefore neither model portability (SBML/CellML), nor experiment
-reproducibility (SED-ML/BioSimulators), nor port-based composition
-(Vivarium), but \textbf{heterogeneous cross-formalism uncertainty
-propagation}: a single transport contract under which each formalism
-reports its \emph{native} notion of uncertainty and the orchestrator
-composes those intervals at coupling boundaries without homogenising
-them (\S\ref{sec:xf-uq}, Table~\ref{tab:uq-taxonomy}).
+BioSimulators~\cite{shaikh2022biosimulators} and the SED-ML/COMBINE stack
+standardise how an experiment is described and re-executed across engines,
+but target reproducible single-model execution, not a runtime inter-model
+signal carrying an uncertainty interval. The gap OISA fills is thus neither
+portability (SBML/CellML), reproducibility (SED-ML/BioSimulators), nor
+port-based composition (Vivarium), but \textbf{heterogeneous
+cross-formalism uncertainty propagation}: one transport contract under
+which each formalism reports its \emph{native} uncertainty and the
+orchestrator composes those intervals at coupling boundaries without
+homogenising them (\S\ref{sec:xf-uq}, Table~\ref{tab:uq-taxonomy}).
 
 \begin{table*}[t]
 \centering
 \caption{Comparison of SBML, CellML, NeuroML/LEMS, and OISA across
-capabilities relevant to multi-organ immune simulation. ``---'' =
-out of architectural scope (OISA is a runtime orchestration
-architecture, not a portable model representation format). Runtime~UQ:
-ensemble bounds (reported in the \texttt{ci\_95} schema field) originate
-in the stochastic ABM ensemble ($N\!=\!20$ parallel CC3D instances;
-reported as 2.5--97.5th percentile estimates) and propagate through the
-deterministic ODE via triple integration at each checkpoint
-(\S\ref{sec:valid-setup}).
-``SBML L3'' refers to the format specification alone; SED-ML
-\cite{waltemath2011sedml} provides co-simulation capabilities including
-heterogeneous time-stepping for SBML-compatible models but does not
-extend to ABM composition.}
+capabilities relevant to multi-organ immune simulation. ``---'' = out
+of architectural scope. Runtime~UQ bounds
+originate in the stochastic ABM ensemble and propagate through the
+deterministic ODE at each checkpoint (\S\ref{sec:valid-setup}).
+``SBML~L3'' refers to the format specification alone; SED-ML co-simulation
+does not extend to ABM composition.}
 \label{tab:standards}
 \renewcommand{\arraystretch}{1.0}
 \begin{tabular}{lcccc}
@@ -341,19 +311,18 @@ Requires model rewrite to adopt           & \checkmark & \checkmark & \checkmark
 
 \subsection{Immune Digital Twins}
 
-The concept of the immune digital twin (IDT) was formalised by
-Laubenbacher \emph{et al.}~\cite{laubenbacher2022roadmap} as a
-continuously-recalibrated patient-specific computational model of the
-immune system. Subsequent
-reviews~\cite{laubenbacher2024forum,niarakis2024idt} have identified
-interoperability as the primary technical barrier to clinical
-deployment, a conclusion echoed by the National
-Academies~\cite{nasem2023digitaltwins}, by model integration
-consortia~\cite{karr2022modelintegration}, and by multi-scale digital
-twin frameworks in adjacent domains~\cite{viceconti2024vht}. OISA is
-the first runtime orchestration architecture designed specifically for
-heterogeneous immune model composition, providing the coordination
-infrastructure that these reviews identify as lacking.
+The immune digital twin (IDT) was formalised by Laubenbacher \emph{et
+al.}~\cite{laubenbacher2022roadmap} as a continuously-recalibrated
+patient-specific model of the immune system. Subsequent
+reviews~\cite{laubenbacher2024forum,niarakis2024idt} identify
+interoperability as the primary technical barrier to clinical deployment,
+a conclusion echoed by the National Academies~\cite{nasem2023digitaltwins},
+model-integration consortia~\cite{karr2022modelintegration}, and
+multi-scale digital-twin frameworks in adjacent
+domains~\cite{viceconti2024vht}. OISA is the first runtime orchestration
+architecture designed specifically for heterogeneous immune-model
+composition, providing the coordination infrastructure these reviews
+identify as lacking.
 
 %%==============================================================
 \section{Problem Formalisation}
@@ -366,49 +335,36 @@ internal state space,
 $\mathrm{Emit}\!:\!S\!\times\!T\!\to\!\mathrm{ISSL}$ maps the current
 state and simulation time to a structured ISSL record, and
 $\mathrm{Accept}\!:\!\mathrm{ISSL}\!\to\!S$ updates the model state in
-response to an incoming inter-model signal. Any model --- ODE, ABM,
-hybrid, or neural surrogate --- that implements Emit and Accept is
-OISA-compliant without any other modification. Formalism-agnosticism
-follows directly: since the ISSL is the only communication channel,
-models need not know each other's internal representation, only the
-schema of the signal they receive. This design principle --- letting
-each biological process be modelled in its natural formalism and
-solving the composition problem at the interface --- avoids forcing
-biologically inappropriate representations on individual compartments.
+response to an incoming inter-model signal. Any model, ODE, ABM, hybrid,
+or neural surrogate, implementing Emit and Accept is OISA-compliant with no
+other modification. Formalism-agnosticism follows: since the ISSL is the
+only communication channel, models need only the schema of the signal they
+receive, not each other's internal representation. Each biological process
+is thus modelled in its natural formalism, solving composition at the
+interface rather than forcing inappropriate representations on individual
+compartments.
 
 \subsection{The Composition Problem}\label{sec:composition}
 A multi-model composition is a directed graph $G\!=\!(V,E)$ where each
-vertex $v$ is a model $M_v$ and each directed edge $(u,v)$ specifies
-that a subset of $u$'s \texttt{export\_signals} are routed to $v$'s
-Accept function, with optional transfer-model lags. The composition
-problem reduces to three coordination challenges:
+vertex $v$ is a model $M_v$ and each edge $(u,v)$ routes a subset of $u$'s
+\texttt{export\_signals} to $v$'s Accept function, with optional
+transfer-model lags. The composition problem reduces to three coordination
+challenges:
 
 \begin{enumerate}
 \item \textbf{Heterogeneous time steps.} A global simulation clock
-      (GSimT) must coordinate execution such that no model receives a
-      signal purporting to come from a future GSimT tick. In the
-      influenza reference implementation, the viral dynamics ODE steps
-      at 6\,h intervals while the tissue immune ABM steps at 24\,h
-      intervals (72 Monte Carlo Steps at 20\,min/MCS); the GSimT tick
-      is set to the GCD of all model $\Delta t_i$ values (here 6\,h).
-
+      (GSimT), set to the GCD of all model $\Delta t_i$, coordinates
+      execution so no model receives a signal from a future tick (here the
+      ODE steps at 6\,h, the ABM at 24\,h, so GSimT $=$ 6\,h).
 \item \textbf{Stochastic--deterministic reconciliation.} Signals from a
-      stochastic ABM to a deterministic ODE must carry uncertainty
-      information. The orchestrator normalises all inter-model signals
-      to (median, uncertainty bounds, unit) before routing, stored in
-      the \texttt{ci\_95} schema field: for stochastic models, bounds
-      are computed from a rolling ensemble of $N$ parallel instances
-      (\S\ref{sec:valid-setup}; with $N\!=\!20$, reported as 2.5th--97.5th
-      percentile); for
-      deterministic models, bounds are derived by propagating the input
-      uncertainty through the model equations.
-
-\item \textbf{Causal ordering with feedback.} The immune model emits
-      cytokine signals that drive viral clearance; viral load in turn
-      drives immune recruitment --- a feedback loop. The orchestrator
-      resolves this by applying a one-tick delay on back-edges of the
-      DAG, preventing circular dependency while preserving biological
-      causality at the GSimT timescale.
+      stochastic ABM to a deterministic ODE must carry uncertainty: the
+      orchestrator normalises every signal to (median, bounds, unit) in the
+      \texttt{ci\_95} field, ensemble percentiles for stochastic models
+      ($N\!=\!20$ here), propagated bounds for deterministic ones.
+\item \textbf{Causal ordering with feedback.} Immune signals drive viral
+      clearance while viral load drives recruitment, a feedback loop
+      resolved by a one-tick delay on DAG back-edges, preventing circular
+      dependency while preserving causality at the GSimT timescale.
 \end{enumerate}
 
 %%==============================================================
@@ -416,98 +372,60 @@ problem reduces to three coordination challenges:
 %%==============================================================
 
 \subsection{The Internal Simulation State Log (ISSL)}\label{sec:issl}
-The ISSL is a JSON-LD document emitted by a model at each checkpoint,
-structured in six sections: (i)~\texttt{envelope} (model ID/version,
-GSimT timestamp, schema URI, formalism tag --- validated and dispatched
-by the orchestrator before any payload is read);
-(ii)~\texttt{continuous\_state} (running entity populations with
-scaled \texttt{count}, \texttt{unit}, and ensemble \texttt{ci\_95}
-bounds; \texttt{label} is model-local, mapped via signal-id routing);
-(iii)~\texttt{discrete\_events} (punctual events such as cell death or
-cytokine peaks, drawn from a controlled \texttt{event\_type} vocabulary,
-with \texttt{n\_realisations} for ABM events);
-(iv)~\texttt{export\_signals} (inter-compartmental signals available for
-routing: \texttt{signal\_id} as routing key, \texttt{value} in declared
-\texttt{unit} --- always biologically scaled regardless of formalism);
-(v)~\texttt{internal\_parameters} (kinetic parameter values with
-\texttt{provenance} DOI/URI to the calibration source); and
-(vi)~\texttt{watchdog} (model health and \texttt{divergence\_score};
-values $>\!0.15 \Rightarrow$ \texttt{PAUSE}). JSON-LD enables both human
-readability and machine-parsable semantic annotation via linked-data
-context, letting orchestrator components parse records without prior
-knowledge of any model's internal variable names.
+The ISSL is a JSON-LD document emitted at each checkpoint in six
+sections: (i)~\texttt{envelope} (model ID/version, GSimT timestamp,
+schema URI, formalism tag, validated before any payload is read);
+(ii)~\texttt{continuous\_state} (entity populations with scaled
+\texttt{count}, \texttt{unit}, ensemble \texttt{ci\_95}, and model-local
+\texttt{label}); (iii)~\texttt{discrete\_events} (punctual events from a
+controlled \texttt{event\_type} vocabulary, with \texttt{n\_realisations}
+for ABM events); (iv)~\texttt{export\_signals} (routable inter-model
+signals: \texttt{signal\_id} key, \texttt{value} in declared \texttt{unit},
+always biologically scaled); (v)~\texttt{internal\_parameters} (kinetic
+values with \texttt{provenance} to the calibration source); and
+(vi)~\texttt{watchdog} (\texttt{divergence\_score}; $>\!0.15 \Rightarrow$
+\texttt{PAUSE}). JSON-LD gives both human readability and machine-parsable
+semantics, letting the orchestrator parse records without knowing any
+model's internal variable names.
 
-\textit{Box 1 --- ISSL excerpt, ensemble-aggregated Miao 2010 ODE
+\textit{Box 1, ISSL excerpt, ensemble-aggregated Miao 2010 ODE
 checkpoint at day~1 (\texttt{count} $=$ median, \texttt{ci\_95} $=$
 2.5th--97.5th percentile over $N\!=\!20$ replicates):}
 \begin{lstlisting}[language=json]
-{
- "envelope": {
-   "model_id": "miao2010_ode",
-   "model_version": "BIOMD0000000546",
-   "sim_time_s": 108000,
-   "formalism": "ODE",
-   "schema_uri": "schemas/issl_v1.schema.json"
- },
- "continuous_state": [
-   {"label":"Ep", "count":545366.0, "unit":"cells",
-    "ci_95":[545357.0, 545372.0]},
-   {"label":"Eps","count":31064.6,  "unit":"cells",
-    "ci_95":[31041.3, 31098.4]},
-   {"label":"V",  "count":3.29e5,   "unit":"copies/mL",
-    "ci_95":[3.285e5, 3.289e5]}
- ],
- "export_signals": [
-   {"signal_id":"miao2010.viral_load",
-    "value":3.29e5,"unit":"copies/mL",
-    "ci_95":[3.285e5,3.289e5],"transfer_lag_s":null}
- ],
- "watchdog":{"status":"OK","divergence_score":0.0}
-}
+{"envelope":{"model_id":"miao2010_ode","formalism":"ODE",
+  "model_version":"BIOMD0000000546","sim_time_s":108000},
+ "export_signals":[{"signal_id":"miao2010.viral_load","value":3.29e5,
+   "unit":"copies/mL","ci_95":[3.285e5,3.289e5],"transfer_lag_s":null}],
+ "watchdog":{"status":"OK","divergence_score":0.0}}
 \end{lstlisting}
-
-\noindent \textit{Note on \texttt{sim\_time\_s}:} the ODE-local clock
-\emph{after} the step completes; at the day~1 boundary (86{,}400\,s) it
-reads 108{,}000\,s, one 6\,h ODE step beyond.
-
-The ABM adapter emits the same ISSL envelope with
+The ABM adapter emits the same envelope with
 \texttt{formalism}=\texttt{"ABM"}, \texttt{model\_version} pinned to
-\texttt{covid-tissue-models@5b7e42c+OISA\_bridge}, a \texttt{grid}
-field (\texttt{"90x90x2"}), and export signals
-\texttt{sego2020.immune\_cell\_count} and
-\texttt{.recruitment\_cytokine} (example day-1: median 6 immune
-agents [ensemble range 2--10]).
+\texttt{covid-tissue-models@5b7e42c+OISA\_bridge}, a \texttt{grid} field
+(\texttt{"90x90x2"}), and export signals
+\texttt{sego2020.immune\_cell\_count} and \texttt{.recruitment\_cytokine}
+(day-1 example: median 6 agents [ensemble range 2--10]).
 
-The SBML file \texttt{BIOMD0000000546\_model1.xml} is loaded verbatim by
-libroadrunner; no XML modifications are made. The adapter calls
-\texttt{rr.simulate(t0,\,t1,\,2)} and reads species concentrations via
-the standard roadrunner API. For the Sego 2020 CC3D ABM, the adapter
-launches CompuCell3D 4.8.0 as an independent subprocess registering all
-12 original steppables without modification; the only addition is
-\texttt{OISABridgeSteppable}, which executes every 72 MCS ($=$ 24\,h)
-and handles IPC exclusively --- no biological equations are touched.
+Each adapter loads its published model verbatim and emits ISSL through the
+standard model API (roadrunner for the ODE, an IPC bridge steppable for the
+CC3D ABM); setup is in \S\ref{sec:valid-setup}.
 
 \subsection{The Configuration Graph}\label{sec:configgraph}
-The configuration graph is a YAML or JSON-LD file that fully specifies
-the composition --- the orchestrator's sole input at initialisation; no
-model needs to know about any other model. It declares six elements:
-\texttt{models[]} (\{id, formalism: ODE$\vert$ABM, executable,
-issl\_port, delta\_t\_s\}), \texttt{edges[]} (\{source\_model,
-signal\_id, target\_model, lag: \texttt{"constant:N"} $\vert$
-\texttt{"model:ID"}\}), \texttt{transfer\_models[]} (\{id, formalism,
-executable, input\_signal, output\_signal, lag\_output\_field\}),
-\texttt{global\_clock} (\{start\_s, end\_s, checkpoint\_interval\_s\}),
-\texttt{calibration} (\{data\_source\_uri, patient\_id,
-recalibration\_trigger, biomarker\_map[\,]\}), and
-\texttt{wildcard\_namespace} (\{prefix, registry\_uri: null\}, allowing
-non-OBO entities such as novel murine cytokines or patient-specific
-biomarkers). The declarative separation of identity, wiring, and
-temporal parameters implements the CURE extensibility requirement: any
-model node can be substituted without modifying the graph structure.
+The configuration graph is a YAML or JSON-LD file that fully specifies the
+composition, the orchestrator's sole input at initialisation. It declares
+six elements: \texttt{models[]} (id, formalism, executable,
+\texttt{delta\_t\_s}), \texttt{edges[]} (source/target routing with
+constant- or model-derived \texttt{lag}), \texttt{transfer\_models[]}
+(lag-computing adapters), \texttt{global\_clock} (start/end/checkpoint
+interval), \texttt{calibration} (EHR source and biomarker map), and
+\texttt{wildcard\_namespace} (non-OBO entities such as novel cytokines or
+patient-specific biomarkers; full schema in the repository). This
+declarative separation of identity, wiring, and temporal parameters
+implements the CURE extensibility requirement: any model node can be
+substituted without modifying the graph structure.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{../figures/oisa_workflow.pdf}
+\includegraphics[width=0.74\columnwidth]{../figures/oisa_workflow.pdf}
 \caption{OISA workflow for the influenza coupling reference
 implementation. \textbf{(a)}~Architecture diagram: Miao 2010 ODE (SBML,
 BIOMD0000000546) and Sego 2020 CC3D ABM (CompuCell3D 4.8.0, GitHub
@@ -520,346 +438,244 @@ $\to$ ODE.accept $\to$ ODE.step $\to$ ODE.emit}) at the 24\,h boundary.}
 \label{fig:workflow}
 \end{figure}
 
-\noindent\textit{Influenza coupling graph (excerpt):}
-\begin{lstlisting}[language=yamlconf]
-models:
-  - id: miao2010_ode
-    formalism: ODE
-    executable: models/ode_miao2010/miao2010_adapter.py
-    delta_t_s: 21600          # 6 h
-  - id: sego2020_abm
-    formalism: ABM
-    executable: models/abm_sego2020/sego2020_adapter.py
-    delta_t_s: 86400          # 24 h  (72 MCS x 20 min/MCS)
-
-edges:
-  - source: miao2010_ode
-    signal_id: miao2010.viral_load
-    target: sego2020_abm
-    lag: "constant:0"         # same-tick delivery
-  - source: sego2020_abm
-    signal_id: sego2020.immune_cell_count
-    target: miao2010_ode
-    lag: "constant:21600"     # one-tick delay (causal back-edge)
-
-global_clock:
-  start_s: 0
-  end_s: 1209600              # 14 days
-  checkpoint_interval_s: 21600
-\end{lstlisting}
+\noindent For the influenza coupling, the graph declares the two models
+(\texttt{miao2010\_ode}, $\Delta t\!=\!6$\,h; \texttt{sego2020\_abm},
+$\Delta t\!=\!24$\,h) and two edges, \texttt{miao2010.viral\_load}
+$\to$ ABM at \texttt{constant:0} (same-tick) and
+\texttt{sego2020.immune\_cell\_count} $\to$ ODE at
+\texttt{constant:21600} (one-tick causal back-edge), over a 14-day
+\texttt{global\_clock} at 6\,h checkpoints (full YAML in the repository).
 
 \subsection{The Orchestrator Engine}\label{sec:orchestrator}
 The orchestrator is a nine-component server process that reads the
 configuration graph at startup, connects to all model processes, and
-manages the run. Components: (1)~ISSL ingestion (JSON-LD + SI units +
-Mahalanobis OOD); (2)~temporal scheduler (priority queue by
-\texttt{next\_step\_due}); (3)~causal resolver (topological sort +
-one-tick back-edges); (4)~constraint engine (mass conservation +
-parameter bounds); (5)~state registry (versioned checkpoint snapshots +
-provenance); (6)~transfer dispatcher (\texttt{SignalQueue});
-(7)~calibration bridge (EHR ingest, deferred);
-(8)~output aggregator (GIS $\to$ checkpoint log + UQ propagation);
-(9)~watchdog (health poll, pause/resume/rollback). Components 1, 4, 5,
-9 have their core functionality implemented and covered by the
-published test suite (79 tests); sub-capabilities flagged as deferred
-(OOD detection, \texttt{ROLLBACK} recovery, PROV-O URIs,
-conservation-violation auto-rollback) are interface-specified but not
-yet in the test suite.
+manages the run: (1)~ISSL ingestion (JSON-LD + SI units + Mahalanobis
+OOD); (2)~temporal scheduler (priority queue by \texttt{next\_step\_due});
+(3)~causal resolver (topological sort + one-tick back-edges);
+(4)~constraint engine (mass conservation + parameter bounds); (5)~state
+registry (versioned checkpoint snapshots + provenance); (6)~transfer
+dispatcher (\texttt{SignalQueue}); (7)~calibration bridge (EHR ingest,
+deferred); (8)~output aggregator (GIS $\to$ checkpoint log + UQ
+propagation); (9)~watchdog (health poll, pause/resume/rollback). Components
+1, 4, 5, 9 are implemented and covered by the 79-test suite; deferred
+sub-capabilities (OOD detection, \texttt{ROLLBACK} recovery, PROV-O URIs,
+auto-rollback) are interface-specified but not yet tested.
 
-\textbf{Temporal scheduling.} At each GSimT tick (the GCD of all model
-$\Delta t_i$, here 6\,h), the scheduler dispatches step commands to
-models whose \texttt{next\_step\_due} equals the current GSimT. The
-Sego 2020 CC3D ABM, with $\Delta t\!=\!24$\,h (72\,MCS $\times$
-20\,min/MCS), receives step commands every fourth tick. The ODE
-receives a step command at every tick.
+\textbf{Temporal scheduling.} At each GSimT tick the scheduler dispatches
+step commands to models whose \texttt{next\_step\_due} equals the current
+GSimT: the ODE (6\,h) steps every tick, the CC3D ABM (24\,h $=$ 72\,MCS)
+every fourth.
 
-\textbf{Causal resolution.} The causal resolver constructs a DAG from
-the configuration graph and performs topological sorting to determine
-execution order within each GSimT tick. At each 24\,h boundary (every
-fourth tick), the execution order is: (1)~\texttt{ABM.emit()} ---
-export current immune cell count from CC3D cell inventory;
-(2)~\texttt{ODE.accept()} --- inject \texttt{n\_immune} $\to$
-$T_{E_T}$ in SBML; (3)~\texttt{ODE.step($\Delta t$)}; (4)~\texttt{ODE.emit()}
---- export viral load. The ODE's viral load from the previous tick is
-queued for the ABM's next \texttt{Accept} call (written to
-\texttt{ode\_signal.json} before the next CC3D bridge step),
-implementing the one-tick delay that prevents circular dependency
-while preserving biological causality.
-
-\textbf{Calibration bridge (component~7).} The calibration bridge has
-its interface fully specified in the configuration graph schema
-(\texttt{calibration} element, §\ref{sec:configgraph}), but its
-implementation in the reference orchestrator is limited to schema
-validation of that block; full EHR ingestion and dynamic recalibration
-are deferred to clinical deployment.
+\textbf{Causal resolution.} The resolver topologically sorts the DAG per
+tick. At each 24\,h boundary the order is \texttt{ABM.emit()} $\to$
+\texttt{ODE.accept()} ($n_{\text{immune}}\!\to\!T_{E_T}$) $\to$
+\texttt{ODE.step()} $\to$ \texttt{ODE.emit()}, the ODE viral load queued for
+the ABM's next \texttt{Accept}, the one-tick back-edge delay that breaks the
+circular dependency while preserving biological causality.
 
 \subsection{A Third Formalism: Stochastic Boolean Signalling}
 \label{sec:boolean}
 
-To test whether OISA's formalism-agnosticism is structural rather than
-an artefact of the ODE+ABM pair, we added a third model of a
-categorically different formalism: a continuous-time stochastic Boolean
-network. We use \texttt{TregModel} (35 nodes), a CD4$^+$ T-cell /
-regulatory-T-cell differentiation network distributed as a reference
-model in the pyMaBoSS suite~\cite{pymaboss}, executed by the
-MaBoSS engine~\cite{stoll2017maboss} through its compiled
-\texttt{cmaboss} interface. %%TODO(NF): confirm the primary biological
-%%TODO(NF): publication for TregModel and cite it here alongside pyMaBoSS.
-The adapter follows the same non-invasive contract as the ODE and ABM
-adapters --- it modifies neither the \texttt{.bnd} logic nor the
-\texttt{.cfg}, adding only \texttt{Emit()}/\texttt{Accept()} methods.
+To test whether OISA's formalism-agnosticism is structural rather than an
+artefact of the ODE+ABM pair, we added a categorically different formalism:
+a continuous-time stochastic Boolean network. We use \texttt{TregModel} (35
+nodes), a CD4$^+$/regulatory-T-cell network distributed verbatim in the
+pyMaBoSS suite~\cite{pymaboss} (\texttt{test/TregModel\_InitPop.bnd}),
+executed by MaBoSS~\cite{stoll2017maboss}, only to exercise a third
+formalism and with no biological claim. Its adapter follows the same
+non-invasive contract, modifying neither the \texttt{.bnd} logic nor the
+\texttt{.cfg}, adding only \texttt{Emit()}/\texttt{Accept()}.
 
 \paragraph{Coupling.} Antigenic drive from the ODE
-(\texttt{miao2010.infected\_fraction}) is mapped to two continuous
-environmental input rates of the Boolean model, the TCR activation rate
-\texttt{\$ActTCR2} and the IL-2 milieu \texttt{\$ExtIL2}, using the
-graded (non-thresholding) map of the coupling interface. The Boolean
-model is relaxed to its quasi-steady-state attractor within each 6\,h
-GSimT tick (intracellular signalling equilibrates in minutes--hours
-$\ll$ tick; the FOXP3 attractor probability is stable over
-$t=30$--$80$ a.u., verified). Its output, the FOXP3$^+$ attractor
-probability \texttt{maboss\_treg.treg\_fraction}, feeds back onto
-effector immunity: the effective effector count seen by the ODE is
+(\texttt{miao2010.infected\_fraction}) maps to two continuous input rates
+of the Boolean model, the TCR activation rate \texttt{\$ActTCR2} and the
+IL-2 milieu \texttt{\$ExtIL2}, via the graded (non-thresholding) coupling
+map. The Boolean model is relaxed to its quasi-steady-state attractor within
+each 6\,h GSimT tick (intracellular signalling equilibrates in
+minutes--hours $\ll$ tick; the FOXP3 attractor probability is stable over
+$t=30$--$80$ a.u.). Its output, the FOXP3$^+$ attractor probability
+\texttt{maboss\_treg.treg\_fraction}, feeds back onto effector immunity: the
+effective effector count seen by the ODE is
 $n_{\text{eff}} = n_{\text{immune}}\,(1-w\,p_{\text{Treg}})$, with
-suppression weight $w=0.5$ (a coupling hypothesis whose sensitivity is
-quantified in \S\ref{sec:valid-sens}), closing an
-ODE\,$\to$\,Boolean\,$\to$\,ODE regulatory loop through the existing
-one-tick signal-lag mechanism. The ISSL \texttt{formalism} enumeration,
-previously closed over \{ODE, ABM, PDE, \dots\}, was extended additively
-with a \texttt{BOOLEAN} member; this backward-compatible schema change
-is itself evidence that adopting a new formalism requires touching the
-\emph{contract} rather than any existing model.
+suppression weight $w=0.5$ (sensitivity quantified in
+\S\ref{sec:valid-sens}), closing an ODE\,$\to$\,Boolean\,$\to$\,ODE loop
+through the one-tick signal-lag mechanism. The ISSL \texttt{formalism}
+enumeration, previously closed over \{ODE, ABM, PDE, \dots\}, was extended
+additively with a \texttt{BOOLEAN} member; this backward-compatible change
+is itself evidence that adopting a new formalism touches the \emph{contract}
+rather than any existing model.
 
 %%==============================================================
 \section{Validation}\label{sec:validation}
 %%==============================================================
 
-The influenza A viral dynamics coupling (Miao 2010 ODE + Sego 2020 full
-CC3D ABM) is used as a reference implementation because both models are
-independently published, their parameters are rigorously calibrated
-against published experimental data, and their coupling tests a
+The influenza A viral dynamics coupling (Miao 2010 ODE + Sego 2020 full CC3D
+ABM) is the reference implementation because both models are independently
+published, calibrated against experimental data, and their coupling tests a
 biologically significant feedback loop: viral load drives immune
-recruitment; CTL cells modulate viral clearance. \textbf{No biological
-novelty is claimed; the coupling serves to validate that OISA correctly
-orchestrates two heterogeneous published models with zero modification
-to either.}
+recruitment; CTLs modulate viral clearance.
 
 \subsection{Validation Setup}\label{sec:valid-setup}
 
 \textbf{Models.} The ODE component is
-BIOMD0000000546~\cite{miao2010influenza}, a three-species influenza
-tissue model (Ep: uninfected epithelial cells; Eps: infected epithelial
-cells; V: virus) with kinetics calibrated against Murphy \emph{et al.}
-1973 murine infection data. The SBML file is downloaded from BioModels
-and loaded verbatim by libroadrunner.
+BIOMD0000000546~\cite{miao2010influenza}, a three-species influenza tissue
+model (Ep: uninfected epithelial cells; Eps: infected; V: virus) with
+kinetics calibrated against Murphy \emph{et al.} 1973 murine data, loaded
+verbatim from BioModels by libroadrunner.
 
-The ABM component is the complete spatial tissue ABM of Sego \emph{et
-al.} 2020~\cite{sego2020modular}, running in CompuCell3D 4.8.0. The
-simulation occupies a $90{\times}90{\times}2$ voxel grid
-($\approx$\,8{,}100 epithelial cell sites; voxel length 4\,$\mu$m), with
-six cell types: Medium, Uninfected, Infected, VirusReleasing, Dying,
-and Immunecell (CC3D \texttt{typeId}=5). All 12 published steppables
-are registered without modification: \texttt{CellsInitializer},
-\texttt{ViralReplication}, \texttt{ViralInternalization},
-\texttt{ViralSecretion}, \texttt{ImmuneCellKilling},
-\texttt{Chemotaxis}, \texttt{ImmuneCellSeeding},
-\texttt{SimData}, \texttt{CytokineProductionAbsorption},
-\texttt{ImmuneRecruitment}, \texttt{oxidationAgentModel},
-\texttt{VirusFieldInitializer} (all with the \texttt{Steppable} suffix
-in the source).
-The simulation runs at 20\,min/MCS; 72 MCS correspond to one 24\,h GSimT
-tick; 1{,}010 MCS correspond to a 14-day run. Three diffusion fields
-(Virus, cytokine, oxidator) are solved by \texttt{DiffusionSolverFE} at
-each MCS.
+The ABM component is the complete spatial tissue ABM of Sego \emph{et al.}
+2020~\cite{sego2020modular}, running in CompuCell3D 4.8.0 on a
+$90{\times}90{\times}2$ voxel grid ($\approx$\,8{,}100 epithelial sites;
+voxel length 4\,$\mu$m; six cell types incl.\ Immunecell,
+\texttt{typeId}=5). All 12 published steppables (viral
+replication/internalization/secretion, cytokine production/absorption,
+immune killing/seeding/recruitment, chemotaxis, oxidation; full list in the
+repository) are registered without modification. The simulation runs at
+20\,min/MCS (72 MCS $=$ one 24\,h tick; 1{,}010 MCS $=$ 14 days), with three
+diffusion fields (Virus, cytokine, oxidator) solved by
+\texttt{DiffusionSolverFE}.
 
-The single addition to the CC3D setup is \texttt{OISABridgeSteppable}
-(frequency = 72\,MCS), which runs inside the CC3D process but contains
-no biological equations: it reads the CC3D cell inventory to count
-Immunecell agents (type 5), writes the count to \texttt{abm\_out.json},
-raises an \texttt{abm\_ready} file sentinel, and blocks until the
-sentinel is deleted. The adapter writes incoming ODE signals to
-\texttt{ode\_signal.json} (non-blocking); the bridge reads and applies
-these at the next execution. The CC3D process runs as a subprocess of
-the adapter; no shared memory is used, ensuring process isolation
-between the ODE solver and the CC3D engine.
+The single addition is \texttt{OISABridgeSteppable} (frequency 72\,MCS),
+which runs inside CC3D but contains no biological equations: it counts
+Immunecell agents, writes the count to \texttt{abm\_out.json}, raises an
+\texttt{abm\_ready} sentinel, and blocks until it is deleted, while ODE
+signals arrive non-blocking via \texttt{ode\_signal.json}. CC3D runs as an
+adapter subprocess with no shared memory, isolating the ODE solver from
+the CC3D engine.
 
-\textbf{Adapter metrics.} Total modification to either published model
-is \textbf{zero lines}. Adapter code totals $\sim$300 lines: Miao 2010
-wraps libroadrunner ($\sim$60\,LOC); Sego 2020 couples subprocess
-lifecycle + IPC ($\sim$180\,LOC) with an in-process
-\texttt{OISABridgeSteppable} ($\sim$60\,LOC).
+\textbf{Adapter metrics.} Total modification to either published model is
+\textbf{zero lines}; adapter code totals $\sim$300 lines: Miao 2010 wraps
+libroadrunner ($\sim$60\,LOC), Sego 2020 couples subprocess lifecycle + IPC
+($\sim$180\,LOC) with an in-process \texttt{OISABridgeSteppable}
+($\sim$60\,LOC).
 
-\textbf{Runtime UQ.} The ABM component runs as a rolling ensemble of
-$N\!=\!20$ parallel CC3D instances (distinct MersenneTwister seeds,
-isolated IPC directories). The $N$ instances are launched by
-\texttt{Sego2020Ensemble} as concurrent OS subprocesses on separate
-CPU cores (one \texttt{python -m cc3d.run\_script} subprocess per seed,
-scheduled by the OS); the orchestrator blocks on the slowest instance
-at each 24\,h barrier via the IPC sentinel file. Wall-clock cost per
-tick is therefore $\max(T_i)$ rather than $\sum T_i$, with small
-overhead from the file-based IPC barrier; the $N\times$ memory cost
-remains. At each 24\,h GSimT boundary, the ensemble adapter aggregates
-\texttt{n\_immune} across instances and computes the median and the
-2.5\textsuperscript{th}/97.5\textsuperscript{th} percentiles as empirical
-bounds. With $N\!=\!20$ these are statistically meaningful estimates
-of the central 90\% spread. The ODE adapter receives the
-median \texttt{n\_immune} for its central trajectory and performs three
-roadrunner integrations per tick (at median, lower-bound, and
-upper-bound input values), reporting the resulting viral load bounds
-in its ISSL record. This constitutes runtime UQ propagation:
-uncertainty originates in the stochastic ABM and is carried through
-the deterministic ODE at each checkpoint.
+\textbf{Runtime UQ.} The ABM runs as a rolling ensemble of $N\!=\!20$
+parallel CC3D instances (distinct MersenneTwister seeds, isolated IPC
+directories) launched by \texttt{Sego2020Ensemble}; the orchestrator
+blocks on the slowest at each 24\,h barrier, so per-tick wall-clock cost
+is $\max(T_i)$ not $\sum T_i$ ($N\times$ memory remains). At each boundary
+the ensemble adapter aggregates \texttt{n\_immune} into its median and
+2.5/97.5\textsuperscript{th} percentiles, and the ODE adapter integrates
+three times per tick (median, lower, upper input) to report viral-load
+bounds. Uncertainty thus originates in the stochastic ABM and is carried
+through the deterministic ODE at each checkpoint.
 
-\textbf{Model-derived transfer lags.} ISSL export signals carry an
-optional \texttt{transfer\_lag\_s} field. When non-null, the
-orchestrator's \texttt{SignalQueue} defers signal injection until the
-specified delay elapses. A reference implementation
-(\texttt{BloodTransitAdapter}) demonstrates this capability: a
-first-order ODE for blood transit (Donskoy \& Goldschneider 1992)
-computes $\tau=1/(\lambda_{\text{seed}}+\lambda_{\text{clear}})=4.0$
-days as a model-derived lag. The \texttt{BloodTransitAdapter} was
-validated independently (8 dedicated tests) but was not active during
-the 14-day coupled influenza simulation of \S\ref{sec:valid-bio}; the
-influenza use case uses constant-lag edges.
+\textbf{Model-derived transfer lags.} ISSL signals carry an optional
+\texttt{transfer\_lag\_s} field; when non-null the orchestrator's
+\texttt{SignalQueue} defers injection until the delay elapses. A reference
+\texttt{BloodTransitAdapter} (first-order blood-transit ODE, Donskoy \&
+Goldschneider 1992; $\tau=4.0$\,days) demonstrates this, independently
+validated (8 tests), though the \S\ref{sec:valid-bio} influenza run uses
+constant-lag edges.
 
 \textbf{Signals.} Two ISSL signals are routed:
-\texttt{miao2010.viral\_load} (copies/mL) from ODE~$\to$~ABM, and
-\texttt{sego2020.immune\_cell\_count} (\texttt{n\_immune}, CC3D
-Immunecell agent count) from ABM~$\to$~ODE.
+\texttt{miao2010.viral\_load} (copies/mL) ODE~$\to$~ABM and
+\texttt{sego2020.immune\_cell\_count} (CC3D Immunecell count) ABM~$\to$~ODE.
+The viral load maps to the CC3D recruitment signal
+(\texttt{ImmuneRecruitmentSteppable.totalCytokine}) rather than the Virus
+diffusion field, as tissue viral spread is already handled by the Sego 2020
+steppables at their native resolution.
 
-The ODE~$\to$~ABM coupling operates at the \emph{immune recruitment
-interface}: the Miao 2010 ODE governs systemic viral kinetics; the Sego
-2020 CC3D ABM governs spatial immune cell dynamics. The ODE viral load
-is mapped to the CC3D immune recruitment signal
-(\texttt{ImmuneRecruitmentSteppable.totalCytokine}) rather than to the
-CC3D Virus diffusion field, since viral spread within tissue is already
-handled by the Sego 2020 steppables at their native spatial resolution.
-
-\textbf{Derivation of coupling constant
-$\kappa = 3.5{\times}10^{-7}$\,AU$\cdot$mL/copies.} The
-\texttt{ImmuneRecruitmentSteppable} recruits immune cells in proportion
-to \texttt{totalCytokine}, which accumulates from infected-cell
-secretion at rate
-$\text{max\_ck\_secrete\_infect}=10\!\times\!\text{max\_ck\_secrete\_im}=3.5{\times}10^{-3}$\,pM/s
-(\texttt{ViralInfectionVTMModelInputs.py}, line 129). In the Miao 2010
-ODE, the infected fraction at quasi-static equilibrium satisfies
-$\mathrm{Eps}/V \approx \beta_a/\delta_{Es} \approx 1.7{\times}10^{-6}$\,mL/copies.
-The per-step cytokine increment contributed by the ODE viral load $V$
-is therefore
-$\Delta\mathrm{totalCytokine} \approx V \cdot 1.7{\times}10^{-6} \cdot 3.5{\times}10^{-3} \cdot \Delta t$.
-Evaluated at $\Delta t=86{,}400$\,s:
-$\Delta\mathrm{totalCytokine}/V \approx 5{\times}10^{-4}$\,pM$\cdot$mL/copies.
-The constant $3.5{\times}10^{-7}$ (applied per 6\,h GSimT tick; four
-ticks per ABM day) recovers an equivalent daily accumulation
-$\approx 1.4{\times}10^{-6}$, approximately 2.5 orders of magnitude
-below the analytical estimate; $\kappa$ was therefore set empirically
-to maintain \texttt{totalCytokine} within Sego 2020's functional range
-at typical peak viral loads ($10^{6}$--$10^{7}$ copies/mL). The
-discrepancy is absorbed by the unit difference between the ODE's pM
-cytokine scale and the ABM's dimensionless AU accumulator. Preliminary
-exploration suggests that varying $\kappa$ by $\pm 1$ order of
-magnitude shifts the immune onset day by $\pm 1$--$2$ days without
-qualitatively altering the \texttt{n\_immune} trajectory shape; a
-formal sensitivity study is reported in \S\ref{sec:valid-sens}.
+\textbf{Coupling constant $\kappa = 3.5{\times}10^{-7}$\,AU$\cdot$mL/copies.}
+An analytical estimate from the Sego 2020 cytokine secretion rate and the
+Miao 2010 quasi-static infected fraction places the per-tick
+\texttt{totalCytokine} increment $\sim$2.5 orders of magnitude above the
+value used (full arithmetic in the repository); $\kappa$ was therefore set
+empirically to keep \texttt{totalCytokine} within Sego 2020's functional
+range at peak viral loads ($10^{6}$--$10^{7}$ copies/mL), the discrepancy
+absorbed by the pM-to-AU unit difference. Varying $\kappa$ by $\pm 1$ OOM
+shifts immune onset by $\pm 1$--$2$ days without altering the
+\texttt{n\_immune} trajectory shape (\S\ref{sec:valid-sens}).
 
 The \texttt{sego2020.immune\_cell\_count} signal sets
-$T_{E_T} = n_{\text{immune}} \times 100$\,CTL/mL in the SBML,
-modulating the CTL killing term
-$k_E \cdot \mathrm{Eps} \cdot T_{E_T}$ (Miao 2010, Table~1;
-$k_E = 2{\times}10^{-5}$\,mL$\cdot$cell$^{-1}\cdot$day$^{-1}$). The
-scaling factor of 100\,CTL/mL per CC3D agent is consistent with
-published peak CTL densities of $10^{3}$--$10^{6}$\,CTL/mL given a
-tissue compartment volume of $\approx 0.01$\,mL. Note that $T_{E_T}$
-represents adaptive cytotoxic T lymphocytes, while the CC3D Immunecell
-agents model innate immune effectors (NK-like, cytokine-recruited).
-Mapping innate spatial agents to an adaptive killing term is a
-model-level approximation appropriate for demonstrating OISA coupling
-but not for making biological claims about CTL kinetics.
+$T_{E_T} = n_{\text{immune}} \times 100$\,CTL/mL in the SBML, modulating the
+CTL killing term $k_E \cdot \mathrm{Eps} \cdot T_{E_T}$ (Miao 2010,
+Table~1). The 100\,CTL/mL-per-agent factor is consistent with published
+peak CTL densities ($10^{3}$--$10^{6}$\,CTL/mL) for a tissue volume
+$\approx 0.01$\,mL. Since $T_{E_T}$ is adaptive while the CC3D Immunecell
+agents are innate effectors, this mapping is a model-level approximation
+for demonstrating coupling, not a claim about CTL kinetics.
 
-\textbf{GSimT configuration.} GCD(6\,h, 24\,h) $=$ 6\,h $\Rightarrow$ 56
-checkpoints over 14 days. ABM steps at 24\,h boundaries; ODE steps at
-every 6\,h tick. Causal order at each 24\,h boundary:
-\texttt{ABM.emit() $\to$ ODE.accept() $\to$ ODE.step() $\to$
-ODE.emit()} (queued for next ABM IPC cycle).
+The GSimT tick is GCD(6\,h, 24\,h) $=$ 6\,h, giving 56 checkpoints over
+14 days (ABM steps at 24\,h boundaries, ODE every tick).
 
-\textbf{Test suite.} Validation is structured as 79 automated tests
-(pytest): 23 ODE adapter tests, 20 ABM adapter tests, 11 Boolean
-(MaBoSS) adapter tests, 8 blood transit transfer model tests, and 17
-integration tests. All tests are
-traceable to published figures or parameter tables; UQ tests verify
-that \texttt{ci\_95} fields are non-null when ensemble input is
-present and that tighter input bounds produce narrower output bounds.
+\textbf{Test suite.} Validation comprises 79 automated pytest tests: 23
+ODE, 20 ABM, 11 Boolean (MaBoSS), 8 blood-transit adapter, and 17
+integration tests, all traceable to published figures or parameter tables;
+UQ tests verify \texttt{ci\_95} fields are non-null given ensemble input and
+that tighter input bounds yield narrower output bounds.
 
 \subsection{Validation Results}
 
 \subsubsection{Non-Invasive Adapter Verification}
 All 79 automated tests pass. The Miao 2010 adapter initialises
-$T_{E_T}=0$ and $k_E=2{\times}10^{-5}$ (Table~1 constant), delegating
-all integration to roadrunner with no SBML edits. The
-\texttt{accept\_issl()} method changes only the $T_{E_T}$ parameter
-value via the standard roadrunner \texttt{setValue} API; no SBML
-equations or species are touched. The Sego 2020 CC3D adapter launch
-test confirms clean subprocess lifecycle management.
+$T_{E_T}=0$ and $k_E=2{\times}10^{-5}$ (Table~1 constant), delegating all
+integration to roadrunner with no SBML edits; \texttt{accept\_issl()}
+changes only the $T_{E_T}$ value via the standard roadrunner
+\texttt{setValue} API, touching no SBML equations or species. The Sego 2020
+CC3D adapter launch test confirms clean subprocess lifecycle management.
 
 \subsubsection{Biological Plausibility of Individual Models}
-ISSL-emitted quantities from each adapter were checked against
-published values (Table~\ref{tab:plausibility}). All checks pass.
+ISSL-emitted quantities from each adapter were checked against published
+values (Table~\ref{tab:plausibility}, upper block). All checks pass.
 
 \begin{table}[t]
 \centering
-\caption{Biological plausibility checks against published model
-values. ``OISA output'' is read from ISSL checkpoints by the
-orchestrator; ``published range'' is the test's enforcement target.}
-\label{tab:plausibility}
+\caption{Biological validation. \emph{Upper block:} individual-model
+plausibility, ISSL outputs read by the orchestrator against each
+test's published enforcement target. \emph{Lower block:} coupled-system
+face-validity, emergent observables (median [2.5th--97.5th percentile],
+$N\!=\!20$) against independent murine influenza-A ranges; the viral-peak
+day is an anchor (Miao 2010 calibrated on viral load), while recruitment
+onset and clearance are emergent coupled features not fit to any joint
+dataset.}
+\label{tab:plausibility}\label{tab:coupled-valid}
 \renewcommand{\arraystretch}{1.0}
 \footnotesize
 \begin{tabularx}{\columnwidth}{@{}lXXc@{}}
 \toprule
-\textbf{Quantity} & \textbf{OISA output} & \textbf{Published range} & \textbf{OK}\\
+\textbf{Quantity / Feature} & \textbf{OISA output} & \textbf{Published range} & \textbf{OK}\\
 \midrule
+\multicolumn{4}{@{}l}{\emph{Individual-model plausibility}}\\
 Viral peak timing                      & Day 2 ($\pm$6\,h)              & Days 1--4               & \checkmark\\
 Peak viral load                        & $8.9{\times}10^{6}$            & $10^{5}$--$10^{8}$      & \checkmark\\
 $V$ at day 13.75                       & $<1\%$ of peak                 & $<10\%$ of peak         & \checkmark\\
 Ep depletion at day 3                  & $\geq 9.3\%$                   & $\geq 5\%$              & \checkmark\\
 $n_{\text{immune}}$ after day 1        & $\geq 1$                       & $>0$ within 1--4\,d     & \checkmark\\
 $n_{\text{immune}}\!\geq\!0$ throughout& min $=$ 0                      & $\geq 0$                & \checkmark\\
+\midrule
+\multicolumn{4}{@{}l}{\emph{Coupled-system face-validity} [CI$_{95}$, $N\!=\!20$]}\\
+Viral-peak day (anchor)      & 2.25\,d [2.25, 2.25] & $\sim$2\,d~\cite{myers2021influenza} & ($\checkmark$)\\
+Immune-recruitment onset     & 1.0\,d [1.0, 1.0]    & 1--2\,d~\cite{lv2014kinetics,iwasaki2010innate} & \checkmark\\
+Viral clearance ($<$1\% peak)& 9.5\,d [9.5, 9.75]   & 8--9\,d~\cite{myers2021influenza} & \checkmark\\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 \subsubsection{Causal Ordering}
-The coupled simulation generated ISSL checkpoint records across the
-full 14-day run (56 checkpoints) with no deadlocks, no temporal
-causality violations, and no watchdog alerts. The IPC handshake
-protocol --- CC3D writes \texttt{abm\_out.json}, raises
-\texttt{abm\_ready}; adapter reads record, deletes \texttt{abm\_ready};
-CC3D unblocks --- was verified to execute without timeout across all
-bridge steps. Checkpoint timestamps were strictly monotonically
-increasing. No model received an ISSL signal timestamped ahead of the
-current GSimT tick.
-
-Figure~\ref{fig:workflow}(b) shows the GSimT timeline for a
-representative 5-day window. Causal-ordering annotation at the day 1
-boundary confirms the \texttt{ABM.emit} $\to$ \texttt{ODE.accept}
-$\to$ \texttt{ODE.step} ordering. This ordering is enforced by the
-orchestrator's topological DAG resolver and by the blocking IPC
-handshake, and was maintained without exception.
+The coupled simulation generated ISSL records across the full 14-day run
+(56 checkpoints) with no deadlocks, causality violations, or watchdog
+alerts, the IPC handshake executing without timeout across all bridge
+steps. Checkpoint timestamps were strictly monotonically increasing, and
+no model received a signal timestamped ahead of the current GSimT tick.
+Figure~\ref{fig:workflow}(b) shows the timeline for a representative 5-day
+window; the day-1 annotation confirms the \texttt{ABM.emit} $\to$
+\texttt{ODE.accept} $\to$ \texttt{ODE.step} ordering, enforced by the
+orchestrator's topological DAG resolver and the blocking IPC handshake.
 
 \subsubsection{Coupled Biological Dynamics}\label{sec:valid-bio}
 
-The coupled simulation (Miao 2010 ODE + Sego 2020 CC3D ABM ensemble)
-ran for 14 days (56 GSimT checkpoints at 6\,h intervals) with
-$N\!=\!20$ parallel CC3D instances. Runtime ensemble bounds are
-computed at each tick by the ensemble adapter and propagated through
-the ODE. Values below are median [ensemble range, $N\!=\!20$] from
-runtime ISSL records (Table~\ref{tab:trajectory}).
+The coupled simulation ran for 14 days (56 GSimT checkpoints) with
+$N\!=\!20$ parallel CC3D instances, ensemble bounds computed each tick and
+propagated through the ODE. Table~\ref{tab:trajectory} reports median
+[ensemble range, $N\!=\!20$] from the runtime ISSL records.
 
 \begin{table}[t]
 \centering
 \caption{14-day coupled trajectory, key checkpoints. Median [ensemble
 range, $N\!=\!20$]. Day~0 is the state after the first 6\,h of ODE
 integration from $V_0\!=\!1{,}000$\,copies/mL. Full 14-point trajectory
-in \texttt{results/issl\_14d/} (also Fig.~\ref{fig:trajectory}).}
+in \texttt{results/issl\_14d/}.}
 \label{tab:trajectory}
 \renewcommand{\arraystretch}{1.0}
 \footnotesize
@@ -878,218 +694,122 @@ Day 13 & $7.79{\times}10^{3}$ & 57 [41--64]\\
 \end{table}
 
 Median peak $V=9.00{\times}10^{6}$\,copies/mL at day 2.25 (all 20
-replicates concur on peak timing); median $V$ at day 13.75 =
-$4.57{\times}10^{3}$\,copies/mL $=$ 0.05\% of peak. All 20 ensemble
-instances confirmed clearance ($V(\text{day 14}) < 0.1\%$ of peak).
-With $N\!=\!20$, $[2.5, 97.5]$-percentile estimates are statistically
-meaningful: peak $V \in [8.97{\times}10^{6},\,9.04{\times}10^{6}]$
-across replicates, a 0.8\% relative spread that confirms the ODE is
-the dominant determinant of peak viral load. The ensemble bounds on
-\texttt{n\_immune} are narrow on days
-0--2 and widen through day 8, consistent with the Bernoulli seeding
-mechanism. The ODE viral load ensemble bounds (propagated via triple
-integration) track the \texttt{n\_immune} uncertainty, demonstrating
-end-to-end UQ propagation.
+replicates concur on peak timing); median $V$ at day 13.75 $=$
+$4.57{\times}10^{3}$\,copies/mL $=$ 0.05\% of peak, all 20 instances
+confirming clearance ($V(\text{day 14}) < 0.1\%$ of peak). Peak
+$V \in [8.97{\times}10^{6},\,9.04{\times}10^{6}]$, a 0.8\% spread
+confirming the ODE dominates peak viral load, while the
+\texttt{n\_immune} bounds widen from days 0--2 through day 8, consistent
+with the Bernoulli seeding; the propagated viral-load bounds track this,
+demonstrating end-to-end UQ propagation.
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{../figures/oisa_trajectory.pdf}
-\caption{Coupled 14-day trajectory generated from ISSL JSON checkpoint
-files in \texttt{results/issl\_14d/}. \textbf{(a)}~Reference-replicate
-viral load $V$ (log scale) and infected fraction $\mathrm{Eps}/(\mathrm{Ep}+\mathrm{Eps})$;
-viral peak annotated at day~2.25. \textbf{(b)}~Median
-\texttt{n\_immune} across $N\!=\!20$ replicates with IQR shading and
-individual replicate trajectories.}
-\label{fig:trajectory}
-\end{figure}
+\textbf{Immune temporal lag.} First CC3D Immunecell agents appear at
+day 1 (median 6), preceding the viral peak at day 2.25 by $\approx$1.25
+days, consistent with the 1--4 day innate-response
+timescale~\cite{iwasaki2010innate} and emerging from OISA-mediated signal
+routing.
 
-\textbf{Immune temporal lag.} The \texttt{n\_immune} trajectory shows
-first CC3D Immunecell agents appearing at day 1 (median~$=$~6 agents),
-preceding the viral peak at day 2.25 by approximately 1.25 days. This
-rapid immune onset is consistent with the innate immune response
-timescale of 1--4 days post-infection~\cite{iwasaki2010innate} and
-emerges from the OISA-mediated signal routing.
+\textbf{CTL-mediated clearance.} As \texttt{n\_immune} grows from 6
+(day 1) to 57 (day 13), $T_{E_T}\!=\!n_{\text{immune}}\!\times\!100$
+grows from 600 to 5{,}700\,CTL/mL in the Miao 2010 SBML, amplifying the
+CTL killing term $k_E \cdot \mathrm{Eps} \cdot T_{E_T}$. An isolated ODE
+run with $T_{E_T}\!=\!0$ produced slower clearance, confirming the
+ABM$\to$ODE pathway significantly shapes the trajectory.
 
-\textbf{CTL-mediated clearance.} With \texttt{n\_immune} growing from
-6 (day 1) to 57 (day 13), $T_{E_T}\!=\!n_{\text{immune}}\!\times\!100$
-grows from 600 to 5{,}700\,CTL/mL in the Miao 2010 SBML, progressively
-amplifying the CTL killing term
-$k_E \cdot \mathrm{Eps} \cdot T_{E_T}$. An isolated ODE run with
-$T_{E_T}\!=\!0$ was confirmed to produce slower viral clearance,
-validating that the ABM $\to$ ODE signal pathway is a functionally
-significant contributor to the observed trajectory.
-
-\textbf{Real spatial ABM properties.} The Immunecell agents are
-genuine spatial agents occupying sites on the
-$90{\times}90{\times}2$ Cellular Potts grid, subject to the Contact,
-Volume, and Chemotaxis plugins from the original Sego 2020 XML. Their
-recruitment is governed by \texttt{ImmuneCellSeedingSteppable}
-(stochastic) and movement by \texttt{ChemotaxisSteppable}
-(cytokine-gradient-directed). The \texttt{n\_immune} values reported in
-the ISSL are counts from the live CC3D cell inventory
-(\texttt{cell.type == 5}), not from a closed-form approximation ---
-the fundamental distinction from a scalar ODE surrogate.
+\textbf{Real spatial ABM properties.} The Immunecell agents occupy genuine
+Cellular Potts grid sites under the original Sego 2020 Contact, Volume, and
+Chemotaxis plugins, recruited stochastically and moving by chemotaxis; the
+reported \texttt{n\_immune} are live CC3D inventory counts
+(\texttt{cell.type == 5}), not a closed-form approximation, the fundamental
+distinction from a scalar ODE surrogate.
 
 \subsubsection{Coupled-System Biological Face-Validity}
 \label{sec:coupled-valid}
 
-The checks above establish orchestration correctness and the
-plausibility of each model in isolation. A distinct question is whether
-the \emph{coupled} system reproduces temporal features of real
-infection that no single model was fit to. We test this by comparing
-emergent observables --- extracted from the $N\!=\!20$ ensemble and
-reported as median [2.5th--97.5th percentile] --- against independent
-published murine influenza-A kinetics (Table~\ref{tab:coupled-valid},
-Fig.~\ref{fig:coupled-valid}).
+The checks above establish orchestration correctness and each model's
+plausibility in isolation. A distinct question is whether the
+\emph{coupled} system reproduces temporal features of real infection that
+no single model was fit to. We test this by comparing emergent observables
+($N\!=\!20$ ensemble, median [2.5th--97.5th percentile]) against independent
+published murine influenza-A kinetics (Table~\ref{tab:plausibility}, lower
+block).
 
-\textbf{Anti-circularity.} This comparison is constructed to avoid
-crediting features that were fit during calibration. (i)~The Miao 2010
-ODE was calibrated to murine \emph{viral-load} data~\cite{miao2010influenza};
-we therefore treat the viral-peak day as a temporal \emph{anchor}
-only, not as a validated prediction. (ii)~The Sego 2020 ABM derives
-from a SARS-CoV-2 tissue simulator~\cite{getz2020sarscov2}; its
-immune-recruitment machinery was not fit to influenza immune
-kinetics, so the recruitment-onset timing is independent of both
-models' calibration data. (iii)~The coupling itself
-($\kappa$, the CTL scaling, the one-tick back-edge lag) was set from
-first principles and sensitivity analysis (Sec.~\ref{sec:valid-sens}),
-not fit to any joint viral$+$immune time series. The viral-clearance
-day is thus a genuine coupled-system property. (iv)~We compare
-\emph{timing} and \emph{normalised shape} only: \texttt{n\_immune} is
-an agent count on the $90{\times}90{\times}2$ grid, not a physiological
-cell count, so absolute magnitudes are never compared.
-
-\begin{table}[t]
-\centering
-\caption{Coupled-system biological face-validity. Emergent observables
-(median [2.5th--97.5th percentile], $N\!=\!20$) against independent
-published murine influenza-A ranges. The viral-peak day is an anchor
-(Miao 2010 was calibrated on viral load) and is not credited as a
-prediction; recruitment onset and viral clearance are emergent
-coupled-system features not fit to any joint dataset.}
-\label{tab:coupled-valid}
-\renewcommand{\arraystretch}{1.1}
-\footnotesize
-\begin{tabularx}{\columnwidth}{@{}llXc@{}}
-\toprule
-\textbf{Feature} & \textbf{OISA [CI$_{95}$]} & \textbf{Published (murine)} & \textbf{OK}\\
-\midrule
-Viral-peak day (anchor)      & 2.25\,d [2.25, 2.25] & $\sim$2\,d p.i.~\cite{myers2021influenza} & ($\checkmark$)\\
-Immune-recruitment onset     & 1.0\,d [1.0, 1.0]    & 1--2\,d p.i.~\cite{lv2014kinetics,iwasaki2010innate} & \checkmark\\
-Viral clearance ($<$1\% peak)& 9.5\,d [9.5, 9.75]   & 8--9\,d p.i.~\cite{myers2021influenza} & \checkmark\\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{../figures/coupled_biovalidation.pdf}
-\caption{Coupled-system biological face-validity.
-\textbf{(a)}~Normalised viral load ($V$, ODE) and immune-recruitment
-count (\texttt{n\_immune}, ABM), each scaled to its own peak; median
-with [2.5th--97.5th percentile] band over $N\!=\!20$ replicates. Dotted
-line: published viral-peak day~\cite{myers2021influenza}; grey band:
-published viral-clearance window (day 8--9)~\cite{myers2021influenza}.
-\textbf{(b)}~Emergent observable timing (OISA median $\pm$ CI$_{95}$,
-green) against published murine ranges (grey bars). The viral peak is
-an anchor; recruitment onset and clearance are emergent coupled
-features.}
-\label{fig:coupled-valid}
-\end{figure}
+\textbf{Anti-circularity.} The comparison avoids crediting features fit
+during calibration. (i)~Miao 2010 was calibrated to murine
+\emph{viral-load} data~\cite{miao2010influenza}, so the viral-peak day is a
+temporal \emph{anchor}, not a validated prediction. (ii)~The Sego 2020 ABM
+derives from a SARS-CoV-2 simulator~\cite{getz2020sarscov2} with
+recruitment machinery not fit to influenza, so recruitment-onset timing is
+independent of both calibrations. (iii)~The coupling ($\kappa$, CTL
+scaling, back-edge lag) was set from first principles and sensitivity
+analysis (Sec.~\ref{sec:valid-sens}), not fit to any joint viral$+$immune
+series, so the clearance day is a genuine coupled-system property. (iv)~We
+compare \emph{timing} and \emph{normalised shape} only: \texttt{n\_immune}
+is a grid agent count, not a physiological one, so absolute magnitudes are
+never compared.
 
 All three emergent features fall within or immediately adjacent to the
-published ranges. The viral-clearance day (median 9.5\,d) sits just
-after the day 8--9 window in which 60\%/40\% of mice clear
-infection~\cite{myers2021influenza}, and the immune-recruitment onset
-(day 1) matches the innate-response
-timescale~\cite{lv2014kinetics,iwasaki2010innate}. Because the
-clearance timing emerges from the ABM$\to$ODE CTL pathway and was not
-fit to any joint dataset, this constitutes \emph{face-validity} of the
-coupled system --- weak but genuine biological support that the
-composition behaves realistically in time. We stress that this is not
-biological \emph{prediction}: no parameter of the coupled configuration
-was fit to, or tested against, simultaneous in-vivo viral$+$immune
-measurements, and the agreement is on temporal features and normalised
-shape, not on absolute quantities.
+published ranges. The viral-clearance day (median 9.5\,d) sits just after
+the day 8--9 window in which 60\%/40\% of mice clear
+infection~\cite{myers2021influenza}, and the recruitment onset (day 1)
+matches the innate-response
+timescale~\cite{lv2014kinetics,iwasaki2010innate}. Because clearance
+timing emerges from the ABM$\to$ODE CTL pathway and was not fit to any
+joint dataset, this is \emph{face-validity}, weak but genuine support
+that the composition behaves realistically in time, not
+\emph{prediction}.
 
 \subsubsection{Parameter Sensitivity (coupling parameters)}
 \label{sec:valid-sens}
 An approximate $3\!\times\!3$ sweep of the two coupling parameters
-($\kappa$ and \texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML}) over
-$\pm$1~OOM --- holding the ABM ensemble fixed via a qualitative
-onset-shift proxy rather than re-simulating $N\!=\!20$ per cell --- is
-reported in the companion data
-(\texttt{results/sensitivity\_analysis.json}). The scaling factor
-dominates (a $10\times$ increase accelerates day-14 clearance by
-2--3~OOM, as it multiplies $T_{E_T}$ in the CTL killing term); $\kappa$
-acts more weakly via immune-recruitment timing. Across all 9
-combinations, peak $V \in [7.84{\times}10^{6},\,9.09{\times}10^{6}]$
-and $V_{14}\!<\!1\%$ of peak --- the qualitative trajectory is robust
-within $\pm$1~OOM of the chosen coupling values. Model-internal
-parameters of Miao 2010 and Sego 2020 are out of scope here, as they
-are already calibrated by the original authors; full coupled global
-sensitivity (e.g.\ Sobol over all parameters) is deferred to future
-work.
+($\kappa$ and \texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML}) over $\pm$1~OOM,
+holding the ABM ensemble fixed via a qualitative onset-shift proxy rather
+than re-simulating $N\!=\!20$ per cell, is reported in the companion data
+(\texttt{results/sensitivity\_analysis.json}). The scaling factor dominates
+(a $10\times$ increase accelerates day-14 clearance by 2--3~OOM, multiplying
+$T_{E_T}$ in the killing term); $\kappa$ acts more weakly via recruitment
+timing. Across all 9 combinations, peak
+$V \in [7.84{\times}10^{6},\,9.09{\times}10^{6}]$ and $V_{14}\!<\!1\%$ of
+peak, so the trajectory is robust within $\pm$1~OOM of the chosen values.
+Model-internal parameters (already calibrated by the original authors) are
+out of scope; full coupled global sensitivity (Sobol) is future work.
 
 The third formalism introduces one further coupling parameter, the Treg
 suppression weight $w$ in
 $n_{\text{eff}}=n_{\text{immune}}(1-w\,p_{\text{Treg}})$
-(\S\ref{sec:boolean}). Because $w$ is a coupling hypothesis rather than
-a fitted constant, we swept it across its full admissible range
-$w\in\{0,0.25,0.5,0.75,1.0\}$ with a complete 14-day tri-formalism run
-at each value (Fig.~\ref{fig:w-sens}). Three findings support the
-robustness of the reported dynamics. First, the viral peak is
-\emph{invariant} to $w$ ($9.09\times10^{6}$ copies\,mL$^{-1}$ at day
-2.25 for all five runs): the peak precedes effector recruitment, so the
-Treg-mediated suppression term cannot affect it --- a structural
-robustness result. Second, the effect on clearance is monotone but
-small: residual viral load at day 14 rises from $0.092\%$ of peak at
-$w{=}0$ to $0.103\%$ at $w{=}1$, a $\sim$12\% relative change across the
-\emph{entire} range of $w$, so no plausible value overturns the
+(\S\ref{sec:boolean}). Because $w$ is a coupling hypothesis rather than a
+fitted constant, we swept its full admissible range
+$w\in\{0,0.25,0.5,0.75,1.0\}$ with a complete 14-day tri-formalism run at
+each value. Three findings support robustness. First, the viral peak is
+\emph{invariant} to $w$ ($9.09\times10^{6}$ copies\,mL$^{-1}$ at day 2.25
+for all five runs): the peak precedes effector recruitment, so the
+Treg-mediated suppression term cannot affect it. Second, the effect on
+clearance is monotone but small: residual viral load at day 14 rises from
+$0.092\%$ of peak at $w{=}0$ to $0.103\%$ at $w{=}1$, a $\sim$12\% relative
+change across the \emph{entire} range, so no plausible value overturns the
 qualitative clearance outcome. Third, and most relevant to the UQ
-contribution, the propagated viral-load \texttt{ci\_95} relative width
-is monotone in $w$ (16.1\% at $w{=}0$ down to 7.2\% at $w{=}1$): stronger
-suppression shrinks the effective-effector term and hence the
-contribution of its uncertainty to the viral-load interval. The chosen
-$w{=}0.5$ sits mid-range and is consistent with the $\sim$1:1
-Treg:Teff ratio at which suppression assays report $\approx$50\%
-inhibition. Model-internal parameters of Miao 2010 and Sego 2020 remain
-out of scope; full coupled global sensitivity (e.g.\ Sobol over all
-parameters, including $w$) is deferred to future work.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{../figures/w_sensitivity.pdf}
-\caption{Sensitivity to the Treg suppression weight $w$, from five
-complete 14-day tri-formalism runs. (a) Mean effective effector count
-over the clearance window (days 3--14, amber) falls linearly with $w$,
-while residual day-14 viral load (navy) rises monotonically but by only
-$\sim$12\% relative across the full range. (b) The relative half-width
-of the propagated viral-load 95\% CI is monotone in $w$. The viral peak
-($9.09\times10^{6}$ copies\,mL$^{-1}$ at day 2.25) is invariant across
-all five runs, as it precedes effector recruitment.}
-\label{fig:w-sens}
-\end{figure}
+contribution, the propagated viral-load \texttt{ci\_95} relative width is
+monotone in $w$ (16.1\% at $w{=}0$ down to 7.2\% at $w{=}1$): stronger
+suppression shrinks the effective-effector term and hence its uncertainty
+contribution to the viral-load interval. The chosen $w{=}0.5$ sits mid-range
+and is consistent with the $\sim$1:1 Treg:Teff ratio at which suppression
+assays report $\approx$50\% inhibition.
 
 \subsection{Heterogeneous Cross-Formalism Uncertainty}
 \label{sec:xf-uq}
 
 The three coupled formalisms define uncertainty in three structurally
-different ways (Table~\ref{tab:uq-taxonomy}). The deterministic ODE has
-no intrinsic uncertainty: its \texttt{ci\_95} is \emph{propagated}
-post-hoc by mirror lo/hi roadrunner instances driven by the bounds of
-its input. The ABM's uncertainty is an \emph{ensemble} dispersion ---
-the 2.5--97.5th percentile band across $N\!=\!20$ independent stochastic
-replicates, available only after $N$ full runs. The Boolean model's
-uncertainty is \emph{native}: MaBoSS estimates each attractor
-probability $\hat p$ from \texttt{sample\_count} stochastic trajectories
-\emph{within a single run}, so the Monte-Carlo sampling error is
-available intrinsically. We report it as the 95\% Wilson score interval
-on $(\hat p, N)$, bounded in $[0,1]$; the raw MaBoSS probtraj error is
-retained as a diagnostic field. The Wilson half-width scales as
-$N^{-1/2}$ (width\,$\times\sqrt{N}\approx1.95$, constant over
-$N=2000$--$32000$) and is maximal at $\hat p = 0.5$ --- the most
-ambiguous cell-fate decision.
+different ways (Table~\ref{tab:uq-taxonomy}). The deterministic ODE has no
+intrinsic uncertainty: its \texttt{ci\_95} is \emph{propagated} post-hoc by
+mirror lo/hi roadrunner instances driven by its input bounds. The ABM's is
+an \emph{ensemble} dispersion, the 2.5--97.5th percentile band across
+$N\!=\!20$ stochastic replicates, available only after $N$ runs. The
+Boolean model's is \emph{native}: MaBoSS estimates each attractor
+probability $\hat p$ from \texttt{sample\_count} trajectories within a
+single run, reported as the 95\% Wilson score interval on $(\hat p, N)$,
+bounded in $[0,1]$. The Wilson half-width scales as $N^{-1/2}$
+(width\,$\times\sqrt{N}\approx1.95$, constant over $N=2000$--$32000$) and is
+maximal at $\hat p = 0.5$, the most ambiguous cell-fate decision.
 
 \begin{table}[t]
 \centering
@@ -1099,7 +819,7 @@ bounded, ordered 95\% interval; their statistical \emph{meaning} and
 computational cost differ and are \emph{not} homogenised by the
 contract.}
 \label{tab:uq-taxonomy}
-\renewcommand{\arraystretch}{1.15}
+\renewcommand{\arraystretch}{1.0}
 \footnotesize
 \begin{tabularx}{\columnwidth}{@{}lXX@{}}
 \toprule
@@ -1112,42 +832,34 @@ Boolean (TregModel) & native Wilson interval on $(\hat p, N)$ & aleatoric, intra
 \end{tabularx}
 \end{table}
 
-\paragraph{Fusion at the boundary.} At the ABM\,$\otimes$\,Boolean
-coupling node, the effective-effector interval is composed by interval
-arithmetic that respects each factor's monotonicity,
-$n_{\text{eff}}^{\text{lo}} = n^{\text{lo}}(1-w\,p_{\text{Treg}}^{\text{hi}})$
-and
+\paragraph{Fusion at the boundary.} At the ABM\,$\otimes$\,Boolean coupling
+node, the effective-effector interval is composed by interval arithmetic
+respecting each factor's monotonicity,
+$n_{\text{eff}}^{\text{lo}} = n^{\text{lo}}(1-w\,p_{\text{Treg}}^{\text{hi}})$,
 $n_{\text{eff}}^{\text{hi}} = n^{\text{hi}}(1-w\,p_{\text{Treg}}^{\text{lo}})$,
 so a \emph{single} transported interval fuses an ensemble-derived bound
-(ABM) with a native-sampling bound (Boolean); the provenance of each
-bound is recorded in the signal. This interval is injected into the ODE
-bounds runners, so the resulting viral-load \texttt{ci\_95} carries
-uncertainty originating in all three formalisms.
+(ABM) with a native-sampling bound (Boolean), each provenance recorded in
+the signal. Injected into the ODE bounds runners, this makes the resulting
+viral-load \texttt{ci\_95} carry uncertainty from all three formalisms.
 
 \paragraph{Results.} Over the 14-day, 56-checkpoint tri-formalism run
 ($\texttt{sample\_count}=20000$), all 168 emitted ISSL records validate
 against the (Boolean-extended) schema with zero errors and no null
-\texttt{ci\_95}. The nominal dynamics are preserved --- viral peak
+\texttt{ci\_95}. Nominal dynamics are preserved, viral peak
 $9.09\times10^{6}$ copies\,mL$^{-1}$ at day 2.25, matching the
 two-formalism baseline. Interval ordering
-($\text{lo}\le\text{point}\le\text{hi}$) holds at every checkpoint for
-all three formalisms (0/168 violations); the ODE adapter's min/max sort
-correctly handles the sign reversal of the immunity\,$\to$\,virus map
-(more effectors $\Rightarrow$ less virus). Propagation is monotone: the
-relative half-width of the viral-load \texttt{ci\_95} correlates at
-$r=0.93$ with the width of the fused effective-effector interval, and
-grows from 0\% (pre-recruitment) to $\approx$11.5\% during the
-clearance phase (day 13.75), as the ABM ensemble band and the Boolean
-Wilson interval both become non-degenerate
-(Fig.~\ref{fig:xf-uq}). To our knowledge this is the first
-demonstration of an immune multi-model run in which a deterministic, a
-stochastic-agent, and a stochastic-Boolean formalism are coupled
-through one contract while each reports its native uncertainty and those
-uncertainties compose, verifiably, into the coupled output.
+($\text{lo}\le\text{point}\le\text{hi}$) holds at every checkpoint for all
+three formalisms (0/168 violations), the ODE adapter's min/max sort
+correctly handling the sign reversal of the immunity\,$\to$\,virus map
+(more effectors $\Rightarrow$ less virus). Propagation is monotone: the relative half-width of the viral-load
+\texttt{ci\_95} correlates at $r=0.93$ with the fused effective-effector
+interval, growing from 0\% (pre-recruitment) to $\approx$11.5\% during
+clearance (day 13.75) as the ABM ensemble band and Boolean Wilson interval
+both become non-degenerate (Fig.~\ref{fig:xf-uq}).
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{../figures/tri_formalism_trajectory.pdf}
+\includegraphics[width=0.59\columnwidth]{../figures/tri_formalism_trajectory.pdf}
 \caption{Cross-formalism uncertainty propagation over 14 days.
 (a) Boolean FOXP3$^+$ commitment with its native Monte-Carlo (Wilson)
 95\% band. (b) ABM-recruited effector immunity (ensemble band) and the
@@ -1159,112 +871,90 @@ coupling. Each colour identifies one formalism.}
 \label{fig:xf-uq}
 \end{figure}
 
+
 %%==============================================================
 \section{Discussion}
 %%==============================================================
 
 \subsection{OISA and the CURE Guidelines}
-The CURE guidelines~\cite{sauro2025cure} are currently an arXiv
-preprint (peer-review status pending at time of submission); we
-interpret OISA's design against their principles, supplemented by FAIR
-alignment where applicable. OISA maps cleanly to each CURE criterion:
-\emph{credibility} via ISSL \texttt{ci\_95} + ensemble bounds + the
-watchdog \texttt{divergence\_score};
-\emph{provenance} via ISSL \texttt{envelope.model\_version}
+We interpret OISA's design against the CURE
+guidelines~\cite{sauro2025cure}, supplemented by FAIR alignment. OISA maps
+cleanly to each criterion: \emph{credibility} via ISSL \texttt{ci\_95} +
+ensemble bounds + the watchdog \texttt{divergence\_score};
+\emph{provenance} via \texttt{envelope.model\_version}
 (\texttt{BIOMD0000000546} / commit-SHA + bridge tag for the ABM);
-\emph{understandability} via \texttt{envelope} +
-\texttt{continuous\_state} + \texttt{export\_signals} per checkpoint;
-\emph{reproducibility} via JSON-LD schema and commit-SHA
-\texttt{model\_version}; \emph{extensibility} via edge-wired
-config-graph substitutability; and \emph{automated guideline checking}
-via constraint engine + watchdog at every GSimT tick.
-Three points deserve emphasis: OISA implements CURE credibility at the
-\emph{composition} level (a mis-specified tissue-to-systemic scaling
-factor silently miscalibrates CTL killing even when constituents are
-individually valid; the explicit
-\texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML = 100} makes this auditable);
-\texttt{model\_version} ties every checkpoint to a citable, immutable
-artefact; and zero internal biological modifications across two
-published models operationalises CURE extensibility at the multi-model
+\emph{understandability} via \texttt{envelope} + \texttt{continuous\_state}
++ \texttt{export\_signals} per checkpoint; \emph{reproducibility} via
+JSON-LD schema and commit-SHA \texttt{model\_version}; \emph{extensibility}
+via edge-wired config-graph substitutability; and \emph{automated guideline
+checking} via constraint engine + watchdog each tick.
+Notably, OISA implements credibility at the \emph{composition} level: a
+mis-specified tissue-to-systemic scaling factor silently miscalibrates CTL
+killing even when constituents are individually valid, and the explicit
+\texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML = 100} makes this auditable, with zero
+internal modifications operationalising extensibility at the multi-model
 scale.
 
 \subsection{Limitations}
-Validation covers a single organism (murine) and disease (influenza A);
-in-vivo longitudinal tissue-level data are not published in directly
-comparable form. The biological check on the coupled system
-(Sec.~\ref{sec:coupled-valid}) is emergent-feature \emph{face-validity}
---- agreement of temporal features (recruitment onset, clearance day)
-and normalised shape with independent published kinetics --- not
-biological \emph{prediction}: no parameter of the coupled configuration
-was fit to, or tested against, simultaneous in-vivo viral$+$immune
-measurements, and absolute magnitudes are not compared. Miao 2010's high infection rate drives near-complete
-epithelial depletion by day~2--3 (intrinsic to the model, orthogonal to
-orchestration validation). The ODE\,$\to$\,ABM\,$\to$\,ODE cycle uses a
-6\,h back-edge delay --- necessary for causal correctness and negligible
-on influenza's hour-to-day timescales. Runtime bounds are 2.5th--97.5th
-percentile from an $N\!=\!20$ rolling ensemble, large enough for
-stable percentile estimates (wall-clock per tick is $\max(T_i)$ thanks
-to concurrent subprocesses). The
+No biological novelty is claimed: the coupling validates that OISA
+orchestrates heterogeneous published models with zero modification to
+either, not any new immunological result.
+Validation covers a single organism (murine) and disease (influenza A),
+for which in-vivo longitudinal tissue-level data are not published in
+directly comparable form. The biological check
+(Sec.~\ref{sec:coupled-valid}) is emergent-feature \emph{face-validity},
+not \emph{prediction}: no parameter of the coupled configuration was fit to
+or tested against simultaneous in-vivo viral$+$immune measurements, and
+absolute magnitudes are not compared. Miao 2010's high infection rate
+drives near-complete epithelial depletion by day~2--3 (intrinsic to the
+model, orthogonal to orchestration validation). The
+ODE\,$\to$\,ABM\,$\to$\,ODE cycle's 6\,h back-edge delay is negligible on
+influenza's hour-to-day timescales. The
 \texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML\,$=\,$100} conversion and the
-$\sim$3~OOM volume mismatch between $V_{\text{total}}\!\approx\!1$\,mL
-(ODE) and the $\approx\!10^{-3}$\,mL tissue patch (ABM) are absorbed
-implicitly by the empirically tuned $\kappa$; predictive deployment
-must add explicit
+$\sim$3~OOM mismatch between $V_{\text{total}}\!\approx\!1$\,mL (ODE) and
+the $\approx\!10^{-3}$\,mL tissue patch (ABM) are absorbed by the
+empirically tuned $\kappa$; predictive deployment must add explicit
 $V_{\text{tissue}}\!=\!V_{\text{systemic}}\times
-(V_{\text{patch}}/V_{\text{total}})$ normalisation and recalibrate
-against paired tissue + systemic data. File-based IPC adds
-$\approx$50\,ms per tick ($<$1\,s over 14 days); sub-6-hour
-communication would need a socket or shared-memory transport.
-Two limitations are specific to the third formalism and its
-cross-formalism UQ. First, the Boolean model is relaxed to its
-quasi-steady-state attractor within each tick; this is justified when
-intracellular signalling equilibrates fast relative to the 6\,h tick
-(verified stable for FOXP3 over $t=30$--$80$ a.u.) but would break for a
-signalling process operating on the tick timescale, which would instead
-require sub-tick Boolean stepping. Second, uncertainty is fused at
-coupling boundaries by \emph{interval arithmetic} on bounds, not by
-convolving the underlying distributions: this is conservative and
-transparent (each transported bound keeps its provenance) but does not
-yield a joint density, and it can over-cover when the ABM ensemble and
-Boolean sampling errors are correlated. A Monte-Carlo density
-propagation --- sampling the joint input distribution and pushing whole
-samples through the coupling --- is the natural extension and is left to
-future work. The Treg suppression weight $w$ is a coupling hypothesis
-whose effect we bound by sensitivity analysis (\S\ref{sec:valid-sens})
-rather than a value fitted to Treg:Teff suppression data.
+(V_{\text{patch}}/V_{\text{total}})$ normalisation and recalibrate against
+paired data. File-based IPC adds $\approx$50\,ms per tick ($<$1\,s over
+14 days); sub-6-hour communication would need a socket or shared-memory
+transport. Two limitations are specific to the third
+formalism. First, the Boolean model is relaxed to its quasi-steady-state
+attractor each tick, justified when signalling equilibrates fast relative
+to the 6\,h tick (stable for FOXP3 over $t=30$--$80$ a.u.) but requiring
+sub-tick stepping for tick-timescale signalling. Second, uncertainty is
+fused at boundaries by \emph{interval arithmetic} on bounds, not by
+convolving distributions: conservative and provenance-preserving, but
+yielding no joint density and able to over-cover when ABM-ensemble and
+Boolean sampling errors are correlated (Monte-Carlo density propagation is
+the natural extension). The Treg suppression weight $w$ is a coupling
+hypothesis bounded by sensitivity analysis (\S\ref{sec:valid-sens}) rather
+than fitted to Treg:Teff data.
 
 %%==============================================================
+
 \section{Conclusion}
 %%==============================================================
-OISA delivers three contributions beyond the state of the art in
-multi-formalism immune model composition: (1)~runtime UQ propagated at
-every checkpoint from a stochastic ABM ensemble through a deterministic
-ODE; (2)~model-derived transfer lags on edges, demonstrated by a blood
-transit transfer model that computes signal delay dynamically; and
-(3)~a biological plausibility constraint engine at the composition
-level. The architecture is validated by coupling Miao 2010 (SBML
-BIOMD0000000546) and the full Sego 2020 CC3D ABM (12 steppables,
-$90{\times}90{\times}2$ grid, @5b7e42c) with zero changes to either
-model. Over 14 days ($N\!=\!20$, 56 GSimT checkpoints), ISSL records
-reproduce viral kinetics (peak $V=9.0{\times}10^{6}$ at day~2.25;
-0.05\% by day~13.75) and spatial immune recruitment (median
-$n_{\text{immune}}\!=\!6$ at day~1, 57 at day~13). Immune temporal lag
-and CTL-mediated clearance acceleration emerge as bidirectional-
-coupling properties that neither model alone produces ---
-formalism-agnostic composition with runtime UQ is achievable through
-adapter-only integration.
+OISA contributes runtime uncertainty propagated from a stochastic ABM
+ensemble through a deterministic ODE, model-derived transfer lags on edges,
+and a composition-level biological plausibility engine. Coupling two
+independently published influenza models through adapter-only integration,
+with zero changes to either, shows that formalism-agnostic composition with
+runtime UQ is achievable and that emergent bidirectional-coupling behaviour
+neither model produces alone is recovered. The same contract admits a third,
+categorically distinct formalism, indicating the approach generalises beyond
+the ODE--ABM pair.
 
 %%==============================================================
 %% Data & code availability / Competing interests
 %%==============================================================
 \section*{Data, Code, and Competing Interests}
-OISA specifications, ISSL JSON Schema
-(\texttt{schemas/issl\_v1.schema.json}, Draft 2020-12), reference
+OISA specifications, ISSL JSON Schema (Draft 2020-12), reference
 orchestrator, adapters, configuration graph, 14-day ISSL data
 (\texttt{results/issl\_14d/}, 1{,}120 files), sensitivity grid, and the full
 test suite (79 adapter + 51 paper--data tests) are at
-[\emph{repository URL to be added prior to submission}]. Miao 2010 SBML
-is from BioModels unmodified; Sego 2020 from
+\url{https://github.com/Nurtal/IDT_sassy_paper}. Miao 2010 SBML is from
+BioModels unmodified; Sego 2020 from
 \texttt{covid-tissue-models}@\texttt{5b7e42c} (CompuCell3D 4.8.0). The
 author declares no competing interests.
 
@@ -1272,6 +962,7 @@ author declares no competing interests.
 %% References
 %%==============================================================
 {\scriptsize
+\setlength{\IEEEbibitemsep}{0pt plus 0.1pt}
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 }

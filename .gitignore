@@ -16,3 +16,5 @@ paper/P*.log
 paper/R*.log
 paper/BIB.log
 paper/build.log
+paper/build_check/
+paper/OISA_final_8pages.pdf

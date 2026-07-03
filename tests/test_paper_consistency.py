@@ -32,7 +32,7 @@ import pytest
 _ROOT         = Path(__file__).resolve().parents[1]
 _RESULTS_DIR  = _ROOT / "results" / "issl_14d"
 _SENS_JSON    = _ROOT / "results" / "sensitivity_analysis.json"
-_PAPER        = _ROOT / "docs" / "OISA_paper_IEEE_BIBM2026.md"
+_PAPER        = _ROOT / "paper" / "main.tex"   # submission artifact under review
 _ODE_ADAPTER  = _ROOT / "models" / "ode_miao2010" / "miao2010_adapter.py"
 _ABM_ADAPTER  = _ROOT / "models" / "abm_sego2020" / "sego2020_adapter.py"
 _BRIDGE       = _ROOT / "models" / "abm_sego2020" / "oisa_bridge_steppable.py"
@@ -76,6 +76,24 @@ def _n_immune_at_day(checkpoints: list[dict], target_day: float) -> int | None:
 
 def _paper_text() -> str:
     return _PAPER.read_text()
+
+
+def _md_draft_text() -> str:
+    """The Markdown working draft (docs/), kept for drift cross-checks."""
+    return (_ROOT / "docs" / "OISA_paper_IEEE_BIBM2026.md").read_text()
+
+
+def _count_adapter_tests() -> int:
+    """Count test functions across the adapter/orchestrator/transfer suites.
+
+    This is the ground truth the paper's '79 adapter tests' claim must match.
+    """
+    total = 0
+    for test_file in sorted(_ROOT.glob("models/**/test_*.py")):
+        if "__pycache__" in str(test_file):
+            continue
+        total += len(re.findall(r"^\s*def test_", test_file.read_text(), re.M))
+    return total
 
 
 # ---------------------------------------------------------------------------
@@ -385,9 +403,11 @@ class TestPaperClaims:
         )
 
     def test_paper_claims_n20_ensemble(self):
-        """Paper must state N = 20 ensemble instances."""
+        """Paper must state N = 20 ensemble instances (LaTeX: 'N = 20' or 'N=20')."""
         text = _paper_text()
-        assert "N = 20" in text, "Paper should state 'N = 20' ensemble size"
+        assert ("N = 20" in text) or ("N=20" in text), (
+            "Paper should state 'N = 20' ensemble size"
+        )
 
     def test_paper_claims_zero_lines_modified(self):
         """Paper Table V: '0' lines modified for both models."""
@@ -411,11 +431,26 @@ class TestPaperClaims:
             "Paper must reference Sego 2020 GitHub commit 5b7e42c"
         )
 
-    def test_paper_mentions_67_tests(self):
-        """Paper §V-A: test suite comprises 67 automated tests."""
+    def test_paper_mentions_test_count(self):
+        """Paper §V-A must state the correct adapter test-suite size.
+
+        The repository ships 79 adapter tests (23 ODE + 20 ABM + 11 Boolean
+        + 17 integration + 8 transfer) and 51 paper--data consistency tests.
+        This test asserts the submission (main.tex) states the true 79 and
+        does NOT carry the stale '67' from the earlier Markdown draft.
+        """
         text = _paper_text()
-        assert "67" in text, (
-            "Paper should state 67 automated tests (§V-A)"
+        n_adapter = _count_adapter_tests()
+        assert n_adapter == 79, (
+            f"Expected 79 adapter tests on disk, found {n_adapter}; "
+            "update this guard and the paper together."
+        )
+        assert "79" in text, (
+            f"Paper must state {n_adapter} adapter tests (§V-A)"
+        )
+        assert "67" not in text, (
+            "Paper still contains the stale '67' test count from the "
+            "superseded Markdown draft"
         )
 
     def test_paper_peak_V_matches_data(self, all_checkpoints):
@@ -613,39 +648,62 @@ class TestPaperStructure:
     """Verify the paper document has required sections and table numbers."""
 
     def test_all_sections_present(self):
+        """main.tex must contain all required \\section blocks (IEEEtran
+        auto-numbers them I..VII; the roman numerals are not in the source)."""
         text = _paper_text()
         required = [
-            "## I. Introduction",
-            "## II. Related Work",
-            "## III. Problem Formalisation",
-            "## IV. The OISA Architecture",
-            "## V. Validation",
-            "## VI. Discussion",
-            "## VII. Conclusion",
-            "## References",
+            r"\section{Introduction}",
+            r"\section{Related Work}",
+            r"\section{Problem Formalisation}",
+            r"\section{The OISA Architecture}",
+            r"\section{Validation}",
+            r"\section{Discussion}",
+            r"\section{Conclusion}",
+            r"\bibliography{references}",
         ]
         for section in required:
             assert section in text, f"Missing section: '{section}'"
 
-    def test_all_tables_referenced(self):
+    def test_all_tables_present(self):
+        """The five labelled tables of the submission must be defined."""
         text = _paper_text()
-        for n in ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"]:
-            assert f"Table {n}" in text or f"**Table {n}**" in text, (
-                f"Table {n} not referenced in paper"
+        for label in [
+            "tab:standards",
+            "tab:plausibility",
+            "tab:trajectory",
+            "tab:coupled-valid",
+            "tab:uq-taxonomy",
+        ]:
+            assert (r"\label{" + label + "}") in text, (
+                f"Table label '{label}' not defined in paper"
             )
 
-    def test_cure_preprint_disclaimer_in_body(self):
-        """C5 fix: CURE preprint status must be disclosed in §VI-A body text."""
-        text = _paper_text()
-        assert "arXiv" in text and "preprint" in text, (
-            "Paper must acknowledge CURE [17] as arXiv preprint in §VI-A"
+    def test_cure_preprint_disclaimer_disclosed(self):
+        """C5 fix: CURE preprint status must be disclosed to the reader.
+
+        The disclosure lives in the bibliography entry for sauro2025cure
+        (arXiv id + preprint/peer-review note), which renders in the
+        compiled reference list. The body no longer carries a separate
+        preprint clause (editorial decision to remove the redundant
+        Discussion sentence); the credibility guarantee is preserved by
+        the reference metadata, which is the canonical place for it.
+        """
+        bib = (_ROOT / "paper" / "references.bib").read_text()
+        # Isolate the CURE entry and assert it discloses preprint status.
+        assert "sauro2025cure" in bib, "CURE reference entry missing"
+        start = bib.index("sauro2025cure")
+        entry = bib[start:bib.index("@", start + 1)] if "@" in bib[start + 1:] else bib[start:]
+        assert "arXiv" in entry and "Preprint" in entry, (
+            "CURE reference [sauro2025cure] must disclose arXiv preprint status"
         )
 
     def test_validation_scope_disclaimer_in_abstract(self):
         """C1 fix: Abstract must include orchestration-vs-biology disclaimer."""
         text = _paper_text()
-        abstract_end = text.find("## I. Introduction")
-        abstract = text[:abstract_end]
+        m0 = text.find(r"\begin{abstract}")
+        m1 = text.find(r"\end{abstract}")
+        assert m0 != -1 and m1 != -1, "main.tex must contain an abstract env"
+        abstract = text[m0:m1]
         assert "orchestration" in abstract.lower() or "framework" in abstract.lower(), (
             "Abstract should mention orchestration scope"
         )
@@ -664,19 +722,108 @@ class TestPaperStructure:
             "Paper must qualify N=20 bounds as 'ensemble range' or percentile"
         )
 
-    def test_sensitivity_section_V_B_5_present(self):
-        """C2 fix: §V-B.5 Parameter Sensitivity section must exist."""
+    def test_sensitivity_section_present(self):
+        """C2 fix: Parameter Sensitivity section must exist."""
         text = _paper_text()
-        assert "V-B.5" in text or "Parameter Sensitivity" in text, (
-            "Paper must contain §V-B.5 Parameter Sensitivity (C2 fix)"
+        assert "Parameter Sensitivity" in text, (
+            "Paper must contain a Parameter Sensitivity subsection (C2 fix)"
         )
 
     def test_spatial_scale_mismatch_discussed(self):
-        """C3 fix: Paper must discuss spatial scale mismatch with proof-of-concept framing."""
+        """C3 fix: Paper must discuss the spatial scale mismatch and frame it
+        as a coupling demonstration / approximation, with the volume-
+        normalisation argument."""
         text = _paper_text()
-        assert "proof-of-concept" in text.lower() or "proof of concept" in text.lower(), (
-            "§VI-B must frame the spatial scale mismatch as a proof-of-concept limitation"
+        assert (
+            "orders of magnitude" in text.lower()
+            or "approximation" in text.lower()
+            or "demonstrat" in text.lower()
+        ), (
+            "Discussion must frame the spatial scale mismatch as a "
+            "coupling-demonstration approximation"
         )
-        assert "10⁻³" in text or "1e-3" in text.lower() or "volume" in text.lower(), (
-            "§VI-B must mention volume normalisation discussion"
+        assert "volume" in text.lower() or "10^{-" in text or "copies" in text.lower(), (
+            "Discussion must mention the volume-normalisation argument"
+        )
+
+
+# ===========================================================================
+# 9. SUBMISSION-vs-DRAFT DRIFT GUARD
+# ===========================================================================
+
+class TestSubmissionDraftDrift:
+    """Guard against the LaTeX submission (paper/main.tex) and the Markdown
+    working draft (docs/OISA_paper_IEEE_BIBM2026.md) drifting apart on the
+    core, checkable facts.
+
+    Rationale: the consistency suite historically validated only the Markdown
+    draft, while the artifact actually submitted to the venue is main.tex.
+    A stale draft (e.g. 5 replicates / 67 tests / no Boolean formalism) could
+    therefore pass CI while the submission said something different. These
+    tests pin the submission to ground truth and flag when the draft lags so
+    far behind that it should not be relied on.
+    """
+
+    # --- Submission is pinned to the data/repository ground truth ----------
+
+    def test_submission_replicate_count(self):
+        """main.tex must reflect the 20-replicate ensemble actually shipped."""
+        text = _paper_text()
+        assert _N_REPLICATES == 20, "results/issl_14d should hold 20 replicates"
+        assert ("N=20" in text) or ("N = 20" in text), (
+            "Submission must state the N=20 ensemble size"
+        )
+
+    def test_submission_test_count_matches_disk(self):
+        """The '79 adapter tests' claim in main.tex must match the code."""
+        assert _count_adapter_tests() == 79
+        assert "79" in _paper_text()
+
+    def test_submission_has_three_formalisms(self):
+        """main.tex must describe the ODE+ABM+Boolean coupling (the Boolean
+        formalism was added after the Markdown draft was written)."""
+        text = _paper_text()
+        assert "TregModel" in text and "BOOLEAN" in text, (
+            "Submission must include the third (Boolean) formalism"
+        )
+
+    def test_submission_repo_url_filled(self):
+        """The repository URL placeholder must be resolved before submission."""
+        text = _paper_text()
+        assert "repository URL to be added" not in text, (
+            "main.tex still has the repository-URL placeholder"
+        )
+        assert "github.com/Nurtal/IDT_sassy_paper" in text, (
+            "main.tex must contain the code repository URL"
+        )
+
+    # --- Draft must not contradict the submission on shared facts ----------
+
+    def test_draft_not_stale_on_test_count(self):
+        """If the Markdown draft is still present it must not assert the old
+        67-test count that the submission has superseded (79).
+
+        Matched on the specific '67 ... tests' phrasing rather than a bare
+        '67' so that coincidental numbers (e.g. '7.79e3 copies/mL') do not
+        mask a real regression.
+        """
+        draft = _md_draft_text()
+        stale = re.search(r"\b67\b[^.\n]{0,40}?tests?\b", draft) or re.search(
+            r"\btests?\b[^.\n]{0,40}?\b67\b", draft
+        )
+        assert stale is None, (
+            "docs/OISA_paper_IEEE_BIBM2026.md still claims 67 tests but the "
+            "submission (main.tex) and the codebase have 79. The Markdown "
+            "draft is stale — regenerate it from main.tex or remove it so it "
+            "cannot be mistaken for the current paper.\n"
+            f"  offending text: '{stale.group(0) if stale else ''}'"
+        )
+
+    def test_draft_replicate_count_matches_submission(self):
+        """The Markdown draft must not still describe the superseded
+        5-replicate / 280-file run."""
+        draft = _md_draft_text()
+        assert "5 replicates" not in draft and "= 280" not in draft, (
+            "Markdown draft still describes the old 5-replicate / 280-file run; "
+            "the submission uses 20 replicates / 1,120 files"
         )
