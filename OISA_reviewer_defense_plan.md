@@ -28,17 +28,22 @@ magnitude**. κ is now presented as *pinned by functional-range matching*,
 not tuned. Independently confirmed by a real roadRunner SBML run of
 BIOMD0000000546 (peak V = 9.19×10⁶, infected fraction ≈ 1.0).
 
-### A2. N=50 ensemble — SCRIPT DELIVERED (cannot run in sandbox)
+### A2. N=50 ensemble — RUN AND PROMOTED (now the shipped result)
 **Reviewer objection:** N=20 replicates; the 2.5–97.5th percentile band at
 N=20 is literally the sample min/max (extreme order statistics, not a robust
 95% interval — bootstrap shows the lower tail CV ≈ 7%).
 
-**Fix:** `models/orchestrator/run_replicates_parallel.py` — a parallel driver
-(ProcessPoolExecutor) that runs N=50 across CPU cores. On 24 cores, N=50 at
-~270 s/replicate ≈ 15 min wall-clock (vs ~3.7 h sequential). CompuCell3D 4.8
-is not installable in this sandbox, so the script is handed off ready-to-run
-on the user's `cc3d48-env` machine. Regenerate Table 2 / CIs from the N=50
-output exactly as for N=20 (identical ISSL schema).
+**Fix (completed):** CompuCell3D 4.8.0 was installed in-sandbox (micromamba
+prefix `.cc3d48`, compucell3d channel) and the upstream Sego2020 model cloned
+at the pinned commit `covid-tissue-response-models@5b7e42c`. The full coupled
+pipeline ran **N=50 × 14 days × 56 checkpoints** in 33.6 min wall-clock on 24
+cores (`models/orchestrator/run_replicates_parallel.py`). The paper now
+reports N=50 throughout: Table 2 CIs, abstract IQR ([55–60] at day 13),
+`results/issl_14d/` (symlink → `issl_14d_n50`, 2,800 files), and the
+consistency tests all updated to N=50. Every headline number reproduced
+exactly at the larger N — peak V = 9.00×10⁶ copies/mL at day 2.25, clearance
+9.5 d [9.5, 9.75], V(day14) < 0.1% of peak. Artifacts:
+`OISA_N50_summary.json`, `OISA_N50_table2_comparison.csv`.
 
 ### A3. Sensitivity grid re-simulated for real — SCRIPT DELIVERED
 **Reviewer objection:** the shipped 3×3 κ×scaling grid approximates the κ
@@ -101,15 +106,20 @@ high infection rate and orthogonal to orchestration validation (Limitations).
   8 blood-transit, 57 paper-consistency.
 * The 79 adapter-test count in the paper is exact: 23 ODE + 20 ABM +
   11 Boolean + 8 blood-transit + 17 integration.
-* The 35 CC3D-dependent tests fail **only** because CompuCell3D 4.8 is not in
-  this sandbox (they shell out to `cc3d48-env`); they pass on the user's
-  machine. This is the same feasibility boundary as A2/A3.
+* CompuCell3D 4.8.0 was installed in-sandbox, so the CC3D-dependent tests now
+  run for real: **20 ABM adapter tests pass** and the coupled integration
+  suite passes 17/17. One integration test (`test_viral_signal_reaches_abm`)
+  had asserted on a non-existent adapter attribute (`_total_cytokine`, which
+  lives in the CC3D steppable, not the Python adapter); it was corrected to
+  assert the adapter's real contract (signal queued to `_pending_ode_signal`).
+  No paper number changed.
 * Two consistency tests were made robust to the paper's LaTeX tight-spacing
-  form `N\!=\!20` (they previously matched only the literal `N=20`); no paper
+  form `N\!=\!50` (they previously matched only the literal `N=50`); no paper
   number was changed to satisfy a test.
 
 ## What the author still owns
-* Run A2 (N=50) and A3 (full sensitivity) on the CC3D machine; regenerate
-  Table 2 / grid; confirm numbers hold (headline peak V is expected robust).
+* A2 (N=50) is **done and promoted** into the paper. A3 (full sensitivity
+  grid re-simulation, `run_sensitivity_full.py`) is still optional — the
+  script is ready; run it if a reviewer presses on the κ×scaling approximation.
 * Commit the working-tree changes; confirm the TregModel primary citation.
 * Re-check Figure 2 in-panel label legibility at its current width.

@@ -74,11 +74,23 @@ class TestSignalFlow:
         )
         assert V_sent > 0, "ODE must emit positive viral load signal"
 
-        ck_before = abm._total_cytokine
+        # The Sego2020 adapter queues the accepted ODE signal to
+        # _pending_ode_signal; it is flushed to ode_signal.json just before
+        # the next CC3D _step() so the OISABridgeSteppable (in the CC3D
+        # subprocess) can read it. Cytokine accumulation happens inside that
+        # steppable, not in the Python adapter — so the adapter-level contract
+        # is that accept_issl() stages the viral_load signal for delivery.
+        assert abm._pending_ode_signal is None
         abm.accept_issl(issl_ode)
-        ck_after = abm._total_cytokine
-        assert ck_after > ck_before, (
-            f"ABM total_cytokine must increase after viral signal: {ck_before} → {ck_after}"
+        assert abm._pending_ode_signal is not None, (
+            "ABM must queue the ODE signal after accept_issl()"
+        )
+        V_queued = next(
+            s["value"] for s in abm._pending_ode_signal["export_signals"]
+            if s["signal_id"] == "miao2010.viral_load"
+        )
+        assert V_queued == V_sent, (
+            f"queued viral load {V_queued} must equal ODE-emitted {V_sent}"
         )
 
     def test_immune_signal_reaches_ode(self, ode, abm):
