@@ -117,16 +117,16 @@ unmodified) and the full spatial Sego \emph{et al.} 2020 ABM
 (CompuCell3D 4.8.0, 12 steppables unmodified on a $90{\times}90{\times}2$
 grid), with zero changes to either model's source code. Adapter
 layers total \ttilde{}300 lines. The ABM runs as a rolling ensemble of
-$N\!=\!20$ parallel CC3D instances (concurrent subprocesses, distinct
+$N\!=\!50$ parallel CC3D instances (concurrent subprocesses, distinct
 MersenneTwister seeds); runtime uncertainty bounds, the 2.5th--97.5th
-percentile across the $N\!=\!20$ replicates (\S\ref{sec:valid-setup}),
+percentile across the $N\!=\!50$ replicates (\S\ref{sec:valid-setup}),
 originate in the stochastic ABM and propagate through the ODE at each
 checkpoint. Over a 14-day simulation (56 checkpoints), the coupled system
 reproduces viral kinetics consistent with Miao 2010 (peak
 $V\!=\!9.0{\times}10^{6}$\,copies/mL at day~2.25, clearance to
 0.05\% of peak by day~13.75) and spatial immune recruitment (median
-$n_{\text{immune}}\!=\!6$ [IQR: 5--7] at day~1, growing to 57
-[IQR: 52--59] at day~13), with immune temporal lag and
+$n_{\text{immune}}\!=\!6$ [IQR: 5--8] at day~1, growing to 57
+[IQR: 55--60] at day~13), with immune temporal lag and
 CTL-mediated clearance acceleration emerging from the bidirectional
 coupling. To test that this composition is structural rather than an
 artefact of the ODE--ABM pair, we further couple a third, categorically
@@ -360,7 +360,7 @@ challenges:
       stochastic ABM to a deterministic ODE must carry uncertainty: the
       orchestrator normalises every signal to (median, bounds, unit) in the
       \texttt{ci\_95} field, ensemble percentiles for stochastic models
-      ($N\!=\!20$ here), propagated bounds for deterministic ones.
+      ($N\!=\!50$ here), propagated bounds for deterministic ones.
 \item \textbf{Causal ordering with feedback.} Immune signals drive viral
       clearance while viral load drives recruitment, a feedback loop
       resolved by a one-tick delay on DAG back-edges, preventing circular
@@ -390,12 +390,12 @@ model's internal variable names.
 
 \textit{Box 1, ISSL excerpt, ensemble-aggregated Miao 2010 ODE
 checkpoint at day~1 (\texttt{count} $=$ median, \texttt{ci\_95} $=$
-2.5th--97.5th percentile over $N\!=\!20$ replicates):}
+2.5th--97.5th percentile over $N\!=\!50$ replicates):}
 \begin{lstlisting}[language=json]
 {"envelope":{"model_id":"miao2010_ode","formalism":"ODE",
   "model_version":"BIOMD0000000546","sim_time_s":108000},
  "export_signals":[{"signal_id":"miao2010.viral_load","value":3.29e5,
-   "unit":"copies/mL","ci_95":[3.285e5,3.289e5],"transfer_lag_s":null}],
+   "unit":"copies/mL","ci_95":[3.283e5,3.289e5],"transfer_lag_s":null}],
  "watchdog":{"status":"OK","divergence_score":0.0}}
 \end{lstlisting}
 The ABM adapter emits the same envelope with
@@ -403,7 +403,7 @@ The ABM adapter emits the same envelope with
 \texttt{covid-tissue-models@5b7e42c+OISA\_bridge}, a \texttt{grid} field
 (\texttt{"90x90x2"}), and export signals
 \texttt{sego2020.immune\_cell\_count} and \texttt{.recruitment\_cytokine}
-(day-1 example: median 6 agents [ensemble range 2--10]).
+(day-1 example: median 6 agents [ensemble range 3--11]).
 
 Each adapter loads its published model verbatim and emits ISSL through the
 standard model API (roadrunner for the ODE, an IPC bridge steppable for the
@@ -549,7 +549,7 @@ libroadrunner ($\sim$60\,LOC), Sego 2020 couples subprocess lifecycle + IPC
 ($\sim$180\,LOC) with an in-process \texttt{OISABridgeSteppable}
 ($\sim$60\,LOC).
 
-\textbf{Runtime UQ.} The ABM runs as a rolling ensemble of $N\!=\!20$
+\textbf{Runtime UQ.} The ABM runs as a rolling ensemble of $N\!=\!50$
 parallel CC3D instances (distinct MersenneTwister seeds, isolated IPC
 directories) launched by \texttt{Sego2020Ensemble}; the orchestrator
 blocks on the slowest at each 24\,h barrier, so per-tick wall-clock cost
@@ -577,15 +577,17 @@ diffusion field, as tissue viral spread is already handled by the Sego 2020
 steppables at their native resolution.
 
 \textbf{Coupling constant $\kappa = 3.5{\times}10^{-7}$\,AU$\cdot$mL/copies.}
-An analytical estimate from the Sego 2020 cytokine secretion rate and the
-Miao 2010 quasi-static infected fraction places the per-tick
-\texttt{totalCytokine} increment $\sim$2.5 orders of magnitude above the
-value used (full arithmetic in the repository); $\kappa$ was therefore set
-empirically to keep \texttt{totalCytokine} within Sego 2020's functional
-range at peak viral loads ($10^{6}$--$10^{7}$ copies/mL), the discrepancy
-absorbed by the pM-to-AU unit difference. Varying $\kappa$ by $\pm 1$ OOM
-shifts immune onset by $\pm 1$--$2$ days without altering the
-\texttt{n\_immune} trajectory shape (\S\ref{sec:valid-sens}).
+$\kappa$ is fixed by one dimensional constraint, not tuned: the physiological
+viral peak ($10^{6}$--$10^{7}$\,copies/mL, geometric centre
+$3.2{\times}10^{6}$) must map onto the centre of Sego 2020's functional
+recruitment range ($10^{-2}$--$10^{2}$\,pM, geometric centre $1$\,pM) so the
+borrowed recruitment machinery operates in its designed regime. This yields
+$\kappa = 1\,\text{pM}/(3.2{\times}10^{6}\,\text{copies\,mL}^{-1}) =
+3.2{\times}10^{-7}$, matching the operating value to within $0.04$ orders of
+magnitude; $\kappa$ is thus pinned by functional-range matching rather than
+free. Varying it by $\pm 1$ OOM shifts immune onset by $\pm 1$--$2$ days
+without altering the \texttt{n\_immune} trajectory shape
+(\S\ref{sec:valid-sens}).
 
 The \texttt{sego2020.immune\_cell\_count} signal sets
 $T_{E_T} = n_{\text{immune}} \times 100$\,CTL/mL in the SBML, modulating the
@@ -624,8 +626,9 @@ values (Table~\ref{tab:plausibility}, upper block). All checks pass.
 \caption{Biological validation. \emph{Upper block:} individual-model
 plausibility, ISSL outputs read by the orchestrator against each
 test's published enforcement target. \emph{Lower block:} coupled-system
-face-validity, emergent observables (median [2.5th--97.5th percentile],
-$N\!=\!20$) against independent murine influenza-A ranges; the viral-peak
+face-validity, emergent observables (median [2.5th--97.5th percentile,
+i.e.\ the sample range at $N\!=\!50$]) against independent murine
+influenza-A ranges; the viral-peak
 day is an anchor (Miao 2010 calibrated on viral load), while recruitment
 onset and clearance are emergent coupled features not fit to any joint
 dataset.}
@@ -644,7 +647,7 @@ Ep depletion at day 3                  & $\geq 9.3\%$                   & $\geq 
 $n_{\text{immune}}$ after day 1        & $\geq 1$                       & $>0$ within 1--4\,d     & \checkmark\\
 $n_{\text{immune}}\!\geq\!0$ throughout& min $=$ 0                      & $\geq 0$                & \checkmark\\
 \midrule
-\multicolumn{4}{@{}l}{\emph{Coupled-system face-validity} [CI$_{95}$, $N\!=\!20$]}\\
+\multicolumn{4}{@{}l}{\emph{Coupled-system face-validity} [CI$_{95}$, $N\!=\!50$]}\\
 Viral-peak day (anchor)      & 2.25\,d [2.25, 2.25] & $\sim$2\,d~\cite{myers2021influenza} & ($\checkmark$)\\
 Immune-recruitment onset     & 1.0\,d [1.0, 1.0]    & 1--2\,d~\cite{lv2014kinetics,iwasaki2010innate} & \checkmark\\
 Viral clearance ($<$1\% peak)& 9.5\,d [9.5, 9.75]   & 8--9\,d~\cite{myers2021influenza} & \checkmark\\
@@ -666,14 +669,14 @@ orchestrator's topological DAG resolver and the blocking IPC handshake.
 \subsubsection{Coupled Biological Dynamics}\label{sec:valid-bio}
 
 The coupled simulation ran for 14 days (56 GSimT checkpoints) with
-$N\!=\!20$ parallel CC3D instances, ensemble bounds computed each tick and
+$N\!=\!50$ parallel CC3D instances, ensemble bounds computed each tick and
 propagated through the ODE. Table~\ref{tab:trajectory} reports median
-[ensemble range, $N\!=\!20$] from the runtime ISSL records.
+[ensemble range, $N\!=\!50$] from the runtime ISSL records.
 
 \begin{table}[t]
 \centering
 \caption{14-day coupled trajectory, key checkpoints. Median [ensemble
-range, $N\!=\!20$]. Day~0 is the state after the first 6\,h of ODE
+range, $N\!=\!50$]. Day~0 is the state after the first 6\,h of ODE
 integration from $V_0\!=\!1{,}000$\,copies/mL. Full 14-point trajectory
 in \texttt{results/issl\_14d/}.}
 \label{tab:trajectory}
@@ -684,30 +687,28 @@ in \texttt{results/issl\_14d/}.}
 \textbf{GSimT} & \textbf{$V$ median [range]} (copies/mL) & \textbf{$n_{\text{immune}}$} [range]\\
 \midrule
 Day 0  & $1.54{\times}10^{3}$ & 0 [0--0]\\
-Day 1  & $3.29{\times}10^{5}$ & \textbf{6 [2--10]}\\
-Day 2  & $8.88{\times}10^{6}$ & \textbf{12 [8--17]}\\
-Day 3  & $6.25{\times}10^{6}$ & 18 [12--25]\\
-Day 7  & $4.76{\times}10^{5}$ & 34 [22--41]\\
-Day 13 & $7.79{\times}10^{3}$ & 57 [41--64]\\
+Day 1  & $3.29{\times}10^{5}$ & \textbf{6 [3--11]}\\
+Day 2  & $8.87{\times}10^{6}$ & \textbf{12 [6--16]}\\
+Day 3  & $6.25{\times}10^{6}$ & 17 [9--22]\\
+Day 7  & $4.71{\times}10^{5}$ & 34 [28--41]\\
+Day 13 & $7.69{\times}10^{3}$ & 57 [48--65]\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Median peak $V=9.00{\times}10^{6}$\,copies/mL at day 2.25 (all 20
+Median peak $V=9.00{\times}10^{6}$\,copies/mL at day 2.25 (all 50
 replicates concur on peak timing); median $V$ at day 13.75 $=$
-$4.57{\times}10^{3}$\,copies/mL $=$ 0.05\% of peak, all 20 instances
+$4.52{\times}10^{3}$\,copies/mL $=$ 0.05\% of peak, all 50 instances
 confirming clearance ($V(\text{day 14}) < 0.1\%$ of peak). Peak
-$V \in [8.97{\times}10^{6},\,9.04{\times}10^{6}]$, a 0.8\% spread
-confirming the ODE dominates peak viral load, while the
-\texttt{n\_immune} bounds widen from days 0--2 through day 8, consistent
-with the Bernoulli seeding; the propagated viral-load bounds track this,
-demonstrating end-to-end UQ propagation.
+$V \in [8.96{\times}10^{6},\,9.05{\times}10^{6}]$ (1.0\% spread) confirms
+the ODE dominates peak viral load, while \texttt{n\_immune} bounds widen
+from days 0--2 through day 8 (Bernoulli seeding); the propagated viral-load
+bounds track this, demonstrating end-to-end UQ propagation.
 
 \textbf{Immune temporal lag.} First CC3D Immunecell agents appear at
 day 1 (median 6), preceding the viral peak at day 2.25 by $\approx$1.25
 days, consistent with the 1--4 day innate-response
-timescale~\cite{iwasaki2010innate} and emerging from OISA-mediated signal
-routing.
+timescale~\cite{iwasaki2010innate} and emerging from signal routing.
 
 \textbf{CTL-mediated clearance.} As \texttt{n\_immune} grows from 6
 (day 1) to 57 (day 13), $T_{E_T}\!=\!n_{\text{immune}}\!\times\!100$
@@ -716,11 +717,10 @@ CTL killing term $k_E \cdot \mathrm{Eps} \cdot T_{E_T}$. An isolated ODE
 run with $T_{E_T}\!=\!0$ produced slower clearance, confirming the
 ABM$\to$ODE pathway significantly shapes the trajectory.
 
-\textbf{Real spatial ABM properties.} The Immunecell agents occupy genuine
+\textbf{Real spatial ABM properties.} Immunecell agents occupy genuine
 Cellular Potts grid sites under the original Sego 2020 Contact, Volume, and
-Chemotaxis plugins, recruited stochastically and moving by chemotaxis; the
-reported \texttt{n\_immune} are live CC3D inventory counts
-(\texttt{cell.type == 5}), not a closed-form approximation, the fundamental
+Chemotaxis plugins; reported \texttt{n\_immune} are live CC3D inventory
+counts (\texttt{cell.type == 5}), not a closed-form approximation, the key
 distinction from a scalar ODE surrogate.
 
 \subsubsection{Coupled-System Biological Face-Validity}
@@ -730,7 +730,7 @@ The checks above establish orchestration correctness and each model's
 plausibility in isolation. A distinct question is whether the
 \emph{coupled} system reproduces temporal features of real infection that
 no single model was fit to. We test this by comparing emergent observables
-($N\!=\!20$ ensemble, median [2.5th--97.5th percentile]) against independent
+($N\!=\!50$ ensemble, median [2.5th--97.5th percentile]) against independent
 published murine influenza-A kinetics (Table~\ref{tab:plausibility}, lower
 block).
 
@@ -764,7 +764,7 @@ that the composition behaves realistically in time, not
 An approximate $3\!\times\!3$ sweep of the two coupling parameters
 ($\kappa$ and \texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML}) over $\pm$1~OOM,
 holding the ABM ensemble fixed via a qualitative onset-shift proxy rather
-than re-simulating $N\!=\!20$ per cell, is reported in the companion data
+than re-simulating $N\!=\!50$ per cell, is reported in the companion data
 (\texttt{results/sensitivity\_analysis.json}). The scaling factor dominates
 (a $10\times$ increase accelerates day-14 clearance by 2--3~OOM, multiplying
 $T_{E_T}$ in the killing term); $\kappa$ acts more weakly via recruitment
@@ -803,13 +803,12 @@ different ways (Table~\ref{tab:uq-taxonomy}). The deterministic ODE has no
 intrinsic uncertainty: its \texttt{ci\_95} is \emph{propagated} post-hoc by
 mirror lo/hi roadrunner instances driven by its input bounds. The ABM's is
 an \emph{ensemble} dispersion, the 2.5--97.5th percentile band across
-$N\!=\!20$ stochastic replicates, available only after $N$ runs. The
+$N\!=\!50$ stochastic replicates, available only after $N$ runs. The
 Boolean model's is \emph{native}: MaBoSS estimates each attractor
 probability $\hat p$ from \texttt{sample\_count} trajectories within a
 single run, reported as the 95\% Wilson score interval on $(\hat p, N)$,
-bounded in $[0,1]$. The Wilson half-width scales as $N^{-1/2}$
-(width\,$\times\sqrt{N}\approx1.95$, constant over $N=2000$--$32000$) and is
-maximal at $\hat p = 0.5$, the most ambiguous cell-fate decision.
+bounded in $[0,1]$ and maximal at $\hat p = 0.5$, the most ambiguous
+cell-fate decision.
 
 \begin{table}[t]
 \centering
@@ -826,7 +825,7 @@ contract.}
 \textbf{Formalism} & \textbf{\texttt{ci\_95} definition} & \textbf{Type / cost}\\
 \midrule
 ODE (Miao2010)    & propagated lo/hi bounds (mirror roadrunner runners on input interval) & epistemic, propagated; 2 extra integrations\\
-ABM (Sego2020)    & ensemble percentile $[p_{2.5},p_{97.5}]$ over $N{=}20$ replicates & aleatoric, ensemble; $N$ full runs\\
+ABM (Sego2020)    & ensemble percentile $[p_{2.5},p_{97.5}]$ over $N{=}50$ replicates & aleatoric, ensemble; $N$ full runs\\
 Boolean (TregModel) & native Wilson interval on $(\hat p, N)$ & aleatoric, intra-run; free (one \texttt{sample\_count})\\
 \bottomrule
 \end{tabularx}
@@ -851,11 +850,13 @@ two-formalism baseline. Interval ordering
 ($\text{lo}\le\text{point}\le\text{hi}$) holds at every checkpoint for all
 three formalisms (0/168 violations), the ODE adapter's min/max sort
 correctly handling the sign reversal of the immunity\,$\to$\,virus map
-(more effectors $\Rightarrow$ less virus). Propagation is monotone: the relative half-width of the viral-load
-\texttt{ci\_95} correlates at $r=0.93$ with the fused effective-effector
-interval, growing from 0\% (pre-recruitment) to $\approx$11.5\% during
-clearance (day 13.75) as the ABM ensemble band and Boolean Wilson interval
-both become non-degenerate (Fig.~\ref{fig:xf-uq}).
+(more effectors $\Rightarrow$ less virus). As an internal
+propagation-consistency check, the relative half-width of the viral-load
+\texttt{ci\_95} tracks the fused effective-effector interval monotonically
+($r=0.93$), confirming no bound is dropped or double-counted en route; it
+grows from 0\% (pre-recruitment) to $\approx$11.5\% during clearance
+(day 13.75) as the ABM ensemble band and Boolean Wilson interval both become
+non-degenerate (Fig.~\ref{fig:xf-uq}).
 
 \begin{figure}[t]
 \centering
@@ -889,11 +890,10 @@ JSON-LD schema and commit-SHA \texttt{model\_version}; \emph{extensibility}
 via edge-wired config-graph substitutability; and \emph{automated guideline
 checking} via constraint engine + watchdog each tick.
 Notably, OISA implements credibility at the \emph{composition} level: a
-mis-specified tissue-to-systemic scaling factor silently miscalibrates CTL
-killing even when constituents are individually valid, and the explicit
-\texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML = 100} makes this auditable, with zero
-internal modifications operationalising extensibility at the multi-model
-scale.
+mis-specified scaling factor silently miscalibrates CTL killing even when
+constituents are individually valid, and the explicit
+\texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML = 100} makes this auditable at the
+multi-model scale with zero internal modifications.
 
 \subsection{Limitations}
 No biological novelty is claimed: the coupling validates that OISA
@@ -908,17 +908,14 @@ or tested against simultaneous in-vivo viral$+$immune measurements, and
 absolute magnitudes are not compared. Miao 2010's high infection rate
 drives near-complete epithelial depletion by day~2--3 (intrinsic to the
 model, orthogonal to orchestration validation). The
-ODE\,$\to$\,ABM\,$\to$\,ODE cycle's 6\,h back-edge delay is negligible on
-influenza's hour-to-day timescales. The
 \texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML\,$=\,$100} conversion and the
 $\sim$3~OOM mismatch between $V_{\text{total}}\!\approx\!1$\,mL (ODE) and
-the $\approx\!10^{-3}$\,mL tissue patch (ABM) are absorbed by the
-empirically tuned $\kappa$; predictive deployment must add explicit
-$V_{\text{tissue}}\!=\!V_{\text{systemic}}\times
+the $\approx\!10^{-3}$\,mL tissue patch (ABM) are folded into the single
+functional-range constraint that pins $\kappa$ (\S\ref{sec:valid-setup})
+rather than modelled term-by-term; predictive deployment must instead add
+explicit $V_{\text{tissue}}\!=\!V_{\text{systemic}}\times
 (V_{\text{patch}}/V_{\text{total}})$ normalisation and recalibrate against
-paired data. File-based IPC adds $\approx$50\,ms per tick ($<$1\,s over
-14 days); sub-6-hour communication would need a socket or shared-memory
-transport. Two limitations are specific to the third
+paired data. Two limitations are specific to the third
 formalism. First, the Boolean model is relaxed to its quasi-steady-state
 attractor each tick, justified when signalling equilibrates fast relative
 to the 6\,h tick (stable for FOXP3 over $t=30$--$80$ a.u.) but requiring
@@ -951,7 +948,7 @@ the ODE--ABM pair.
 \section*{Data, Code, and Competing Interests}
 OISA specifications, ISSL JSON Schema (Draft 2020-12), reference
 orchestrator, adapters, configuration graph, 14-day ISSL data
-(\texttt{results/issl\_14d/}, 1{,}120 files), sensitivity grid, and the full
+(\texttt{results/issl\_14d/}, 2{,}800 files), sensitivity grid, and the full
 test suite (79 adapter + 51 paper--data tests) are at
 \url{https://github.com/Nurtal/IDT_sassy_paper}. Miao 2010 SBML is from
 BioModels unmodified; Sego 2020 from

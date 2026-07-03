@@ -38,7 +38,7 @@ _ABM_ADAPTER  = _ROOT / "models" / "abm_sego2020" / "sego2020_adapter.py"
 _BRIDGE       = _ROOT / "models" / "abm_sego2020" / "oisa_bridge_steppable.py"
 _SBML_PATH    = _ROOT / "models" / "ode_miao2010" / "BIOMD0000000546_model1.xml"
 
-_REPLICATES   = [f"r{i:02d}" for i in range(1, 21)]
+_REPLICATES   = [f"r{i:02d}" for i in range(1, 51)]
 _N_REPLICATES = len(_REPLICATES)
 
 
@@ -237,7 +237,7 @@ class TestViralKinetics:
             )
 
     def test_viral_clearance_below_0_1_percent_of_peak(self, all_checkpoints):
-        """Paper §V-B.4: 'clearance to < 0.1% of peak by day 13.75' for all 20 replicates."""
+        """Paper §V-B.4: 'clearance to < 0.1% of peak by day 13.75' for all 50 replicates."""
         for r, cps in all_checkpoints.items():
             vs = _viral_series(cps)
             peak_v = max(v for _, v in vs)
@@ -299,7 +299,7 @@ class TestImmuneDynamics:
         )
 
     def test_n_immune_day1_range_matches_data(self, all_checkpoints):
-        """Paper §V-B.4 trajectory table: ens. range [2–10] at day 1 (N=20)."""
+        """Paper §V-B.4 trajectory table: ens. range [2–10] at day 1 (N=50)."""
         vals = [_n_immune_at_day(all_checkpoints[r], 1.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
         assert min(vals) >= 0, f"n_immune cannot be negative, got {min(vals)}"
@@ -311,7 +311,7 @@ class TestImmuneDynamics:
         )
 
     def test_n_immune_day13_median_approx_57(self, all_checkpoints):
-        """Paper §V-B.4 + Abstract: 'growing to 57 [ens. range: 41-64] at day 13' (N=20)."""
+        """Paper §V-B.4 + Abstract: 'growing to 57 [ens. range: 41-64] at day 13' (N=50)."""
         vals = [_n_immune_at_day(all_checkpoints[r], 13.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
         med = statistics.median(vals)
@@ -320,7 +320,7 @@ class TestImmuneDynamics:
         )
 
     def test_n_immune_day13_range_matches_paper(self, all_checkpoints):
-        """Paper states ens. range [41–64] at day 13 (N=20)."""
+        """Paper states ens. range [41–64] at day 13 (N=50)."""
         vals = [_n_immune_at_day(all_checkpoints[r], 13.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
         assert min(vals) >= 38, (
@@ -402,11 +402,12 @@ class TestPaperClaims:
             "Paper should mention '56 checkpoints'"
         )
 
-    def test_paper_claims_n20_ensemble(self):
-        """Paper must state N = 20 ensemble instances (LaTeX: 'N = 20' or 'N=20')."""
+    def test_paper_claims_n50_ensemble(self):
+        """Paper must state N = 50 ensemble instances (accepts LaTeX tight-spacing 'N\\!=\\!50')."""
         text = _paper_text()
-        assert ("N = 20" in text) or ("N=20" in text), (
-            "Paper should state 'N = 20' ensemble size"
+        norm = text.replace("\\!", "").replace("\\,", "").replace(" ", "")
+        assert "N=50" in norm, (
+            "Paper should state 'N = 50' ensemble size"
         )
 
     def test_paper_claims_zero_lines_modified(self):
@@ -456,7 +457,7 @@ class TestPaperClaims:
     def test_paper_peak_V_matches_data(self, all_checkpoints):
         """Paper states 'peak V = 9.0×10⁶ copies/mL at day 2.25'.
 
-        Cross-check: the actual median peak across 20 replicates should agree
+        Cross-check: the actual median peak across 50 replicates should agree
         with the paper's stated value to within 10%.
         """
         peaks = []
@@ -482,7 +483,7 @@ class TestPaperClaims:
             )
 
     def test_paper_ensemble_range_day13_upper_bound(self, all_checkpoints):
-        """Paper claims n_immune day 13 ens. range upper bound 64 (N=20)."""
+        """Paper claims n_immune day 13 ens. range upper bound 64 (N=50)."""
         vals = [_n_immune_at_day(all_checkpoints[r], 13.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
         assert max(vals) <= 70, (
@@ -490,7 +491,7 @@ class TestPaperClaims:
         )
 
     def test_paper_ensemble_range_day1_note(self, all_checkpoints):
-        """Paper §V-B.4 states n_immune(day 1) ens. range [2–10] (N=20)."""
+        """Paper §V-B.4 states n_immune(day 1) ens. range [2–10] (N=50)."""
         vals = [_n_immune_at_day(all_checkpoints[r], 1.0) for r in _REPLICATES]
         vals = [v for v in vals if v is not None]
         actual_min, actual_max = min(vals), max(vals)
@@ -719,7 +720,7 @@ class TestPaperStructure:
             or "ens. range" in text
             or "percentile" in text.lower()
         ), (
-            "Paper must qualify N=20 bounds as 'ensemble range' or percentile"
+            "Paper must qualify N=50 bounds as 'ensemble range' or percentile"
         )
 
     def test_sensitivity_section_present(self):
@@ -767,11 +768,12 @@ class TestSubmissionDraftDrift:
     # --- Submission is pinned to the data/repository ground truth ----------
 
     def test_submission_replicate_count(self):
-        """main.tex must reflect the 20-replicate ensemble actually shipped."""
+        """main.tex must reflect the 50-replicate ensemble actually shipped."""
         text = _paper_text()
-        assert _N_REPLICATES == 20, "results/issl_14d should hold 20 replicates"
-        assert ("N=20" in text) or ("N = 20" in text), (
-            "Submission must state the N=20 ensemble size"
+        assert _N_REPLICATES == 50, "results/issl_14d should hold 50 replicates"
+        norm = text.replace("\\!", "").replace("\\,", "").replace(" ", "")
+        assert "N=50" in norm, (
+            "Submission must state the N=50 ensemble size"
         )
 
     def test_submission_test_count_matches_disk(self):
@@ -825,5 +827,5 @@ class TestSubmissionDraftDrift:
         draft = _md_draft_text()
         assert "5 replicates" not in draft and "= 280" not in draft, (
             "Markdown draft still describes the old 5-replicate / 280-file run; "
-            "the submission uses 20 replicates / 1,120 files"
+            "the submission uses 50 replicates / 2,800 files"
         )

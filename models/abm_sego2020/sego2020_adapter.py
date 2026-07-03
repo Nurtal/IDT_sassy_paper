@@ -52,8 +52,10 @@ _IPC_DIR    = Path(os.environ.get("OISA_IPC_DIR", "/tmp/oisa_ipc"))
 _POLL_S     = 0.05    # busy-wait poll interval
 _TIMEOUT_S  = 600.0   # 10-min safeguard (CC3D 72 MCS << 10 min)
 
-# Scale: each CC3D Immunecell agent represents 100 CTL/mL (Miao 2010 range)
-_N_IMMUNE_TO_CTL_PER_ML = 100.0
+# Scale: each CC3D Immunecell agent represents 100 CTL/mL (Miao 2010 range).
+# Overridable via OISA_CTL_SCALING so a sensitivity sweep can vary the
+# n_immune->CTL/mL conversion without editing this file.
+_N_IMMUNE_TO_CTL_PER_ML = float(os.environ.get("OISA_CTL_SCALING", "100.0"))
 
 
 class Sego2020Adapter:

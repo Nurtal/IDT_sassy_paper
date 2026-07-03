@@ -173,6 +173,12 @@ class OISABridgeSteppable(SteppableBasePy):
             if key not in svars:
                 svars[key] = {}
             current_ck = svars[key].get("totalCytokine", 0.0)
-            svars[key]["totalCytokine"] = current_ck + viral_load * 3.5e-7
+            # Coupling constant kappa (AU.mL/copies). Default 3.5e-7 (pinned by
+            # functional-range matching, see paper Sec. IV-A). Overridable via
+            # the OISA_KAPPA environment variable so a sensitivity sweep can
+            # re-simulate the ABM at each kappa without editing this file.
+            import os
+            kappa = float(os.environ.get("OISA_KAPPA", "3.5e-7"))
+            svars[key]["totalCytokine"] = current_ck + viral_load * kappa
         except Exception:
             pass   # degrade gracefully if shared_steppable_vars not available
