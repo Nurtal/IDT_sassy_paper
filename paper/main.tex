@@ -88,6 +88,20 @@ Inserm U1227, Universit\'e de Bretagne Occidentale\\
 Centre de Donn\'ees Cliniques, CHU de Brest\\
 Brest, France\\
 Email: nathan.foulquier@univ-brest.fr}
+\and
+\IEEEauthorblockN{Tiphaine Casy}
+\IEEEauthorblockA{%
+\'Equipe AIMAC, CentraleSup\'elec\\
+Rennes, France}
+\and
+\IEEEauthorblockN{B\'en\'edicte Rouvi\`ere}
+\IEEEauthorblockA{%
+D\'epartement de m\'edecine interne, pneumologie et
+m\'edecine vasculaire,\\
+CHU de Brest, H\^opital La Cavale-Blanche,
+Brest cedex, France\\
+U1227, LBAI, Universit\'e de Brest, Inserm, CHU de Brest,
+Brest, France}
 }
 
 \maketitle
@@ -140,8 +154,10 @@ simulation. The validation targets orchestration correctness (signal
 routing, causal ordering, UQ propagation); as a secondary check, emergent
 temporal features (immune-recruitment onset, viral-clearance day) show
 face-validity against independent published murine influenza kinetics, not
-biological prediction, as no coupled-configuration parameter was fit to
-simultaneous in-vivo measurements.
+biological prediction. Beyond this coupling, OISA is positioned as
+infrastructure for immune digital twins, making tractable the emergent,
+cross-compartment questions that interoperability reviews identify as
+currently out of reach.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -176,15 +192,10 @@ model should exhibit but prescribe no runtime infrastructure for
 heterogeneous composition. The cross-formalism, multi-timescale coordination
 problem remains open.
 
-We propose OISA, the Orchestrated Immune Simulation Architecture,
-to fill this gap, in three components: the ISSL formalism-agnostic state
-interface (\S\ref{sec:issl}), a declarative configuration graph
-(\S\ref{sec:configgraph}), and an orchestrator engine
-(\S\ref{sec:orchestrator}). We demonstrate it by coupling two
-independently published influenza models, using the full spatial Sego
-2020 CompuCell3D ABM without modifying its 12 biological steppables, and
-evaluate causal ordering, signal-flow correctness, and biological
-plausibility in \S\ref{sec:validation}.
+We propose OISA, the Orchestrated Immune Simulation Architecture, to fill
+this gap. It is demonstrated by coupling two independently published
+influenza models, using the full spatial Sego 2020 CompuCell3D ABM without
+modifying its 12 biological steppables (\S\ref{sec:validation}).
 
 \medskip\noindent The contributions of this work are:
 \begin{enumerate}
@@ -425,7 +436,7 @@ substituted without modifying the graph structure.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.74\columnwidth]{../figures/oisa_workflow.pdf}
+\includegraphics[width=0.70\columnwidth]{../figures/oisa_workflow.pdf}
 \caption{OISA workflow for the influenza coupling reference
 implementation. \textbf{(a)}~Architecture diagram: Miao 2010 ODE (SBML,
 BIOMD0000000546) and Sego 2020 CC3D ABM (CompuCell3D 4.8.0, GitHub
@@ -727,9 +738,13 @@ distinction from a scalar ODE surrogate.
 \label{sec:coupled-valid}
 
 The checks above establish orchestration correctness and each model's
-plausibility in isolation. A distinct question is whether the
-\emph{coupled} system reproduces temporal features of real infection that
-no single model was fit to. We test this by comparing emergent observables
+plausibility in isolation. Composition enables a distinct class of question
+no constituent can answer alone, such as how an emergent property of the
+whole (the time to viral clearance) arises from the interaction between
+endogenous viral replication (ODE) and effector recruitment (ABM) when
+neither was calibrated to the other. A minimal, falsifiable form is testable
+here: whether the \emph{coupled} system reproduces temporal features of real
+infection that no single model was fit to. We compare emergent observables
 ($N\!=\!50$ ensemble, median [2.5th--97.5th percentile]) against independent
 published murine influenza-A kinetics (Table~\ref{tab:plausibility}, lower
 block).
@@ -765,35 +780,32 @@ An approximate $3\!\times\!3$ sweep of the two coupling parameters
 ($\kappa$ and \texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML}) over $\pm$1~OOM,
 holding the ABM ensemble fixed via a qualitative onset-shift proxy rather
 than re-simulating $N\!=\!50$ per cell, is reported in the companion data
-(\texttt{results/sensitivity\_analysis.json}). The scaling factor dominates
-(a $10\times$ increase accelerates day-14 clearance by 2--3~OOM, multiplying
-$T_{E_T}$ in the killing term); $\kappa$ acts more weakly via recruitment
-timing. Across all 9 combinations, peak
+(\texttt{results/sensitivity\_analysis.json}). The scaling factor dominates (a $10\times$ increase accelerates day-14
+clearance by 2--3~OOM via $T_{E_T}$ in the killing term); $\kappa$ acts more
+weakly via recruitment timing. Across all 9 combinations, peak
 $V \in [7.84{\times}10^{6},\,9.09{\times}10^{6}]$ and $V_{14}\!<\!1\%$ of
-peak, so the trajectory is robust within $\pm$1~OOM of the chosen values.
-Model-internal parameters (already calibrated by the original authors) are
-out of scope; full coupled global sensitivity (Sobol) is future work.
+peak, so the trajectory is robust within $\pm$1~OOM. Model-internal
+parameters (calibrated by the original authors) are out of scope; full
+coupled global sensitivity (Sobol) is future work.
 
 The third formalism introduces one further coupling parameter, the Treg
 suppression weight $w$ in
 $n_{\text{eff}}=n_{\text{immune}}(1-w\,p_{\text{Treg}})$
-(\S\ref{sec:boolean}). Because $w$ is a coupling hypothesis rather than a
-fitted constant, we swept its full admissible range
-$w\in\{0,0.25,0.5,0.75,1.0\}$ with a complete 14-day tri-formalism run at
-each value. Three findings support robustness. First, the viral peak is
-\emph{invariant} to $w$ ($9.09\times10^{6}$ copies\,mL$^{-1}$ at day 2.25
-for all five runs): the peak precedes effector recruitment, so the
-Treg-mediated suppression term cannot affect it. Second, the effect on
-clearance is monotone but small: residual viral load at day 14 rises from
-$0.092\%$ of peak at $w{=}0$ to $0.103\%$ at $w{=}1$, a $\sim$12\% relative
-change across the \emph{entire} range, so no plausible value overturns the
-qualitative clearance outcome. Third, and most relevant to the UQ
-contribution, the propagated viral-load \texttt{ci\_95} relative width is
-monotone in $w$ (16.1\% at $w{=}0$ down to 7.2\% at $w{=}1$): stronger
-suppression shrinks the effective-effector term and hence its uncertainty
-contribution to the viral-load interval. The chosen $w{=}0.5$ sits mid-range
-and is consistent with the $\sim$1:1 Treg:Teff ratio at which suppression
-assays report $\approx$50\% inhibition.
+(\S\ref{sec:boolean}). Because $w$ is a coupling hypothesis rather than a fitted constant, we swept
+its full range $w\in\{0,0.25,0.5,0.75,1.0\}$ with a complete 14-day
+tri-formalism run at each value. Three findings support robustness. First,
+the viral peak is \emph{invariant} to $w$ ($9.09\times10^{6}$
+copies\,mL$^{-1}$ at day 2.25, all five runs): it precedes effector
+recruitment, so suppression cannot affect it. Second, the clearance effect
+is monotone but small: residual load at day 14 rises from $0.092\%$ of peak
+at $w{=}0$ to $0.103\%$ at $w{=}1$ ($\sim$12\% relative change across the
+entire range), so no plausible value overturns the qualitative outcome.
+Third, and most relevant to the UQ contribution, the propagated viral-load
+\texttt{ci\_95} relative width is monotone in $w$ (16.1\% down to 7.2\%):
+stronger suppression shrinks the effective-effector term and its uncertainty
+contribution. The chosen $w{=}0.5$ sits mid-range, consistent with the
+$\sim$1:1 Treg:Teff ratio at which suppression assays report $\approx$50\%
+inhibition.
 
 \subsection{Heterogeneous Cross-Formalism Uncertainty}
 \label{sec:xf-uq}
@@ -844,23 +856,21 @@ viral-load \texttt{ci\_95} carry uncertainty from all three formalisms.
 \paragraph{Results.} Over the 14-day, 56-checkpoint tri-formalism run
 ($\texttt{sample\_count}=20000$), all 168 emitted ISSL records validate
 against the (Boolean-extended) schema with zero errors and no null
-\texttt{ci\_95}. Nominal dynamics are preserved, viral peak
-$9.09\times10^{6}$ copies\,mL$^{-1}$ at day 2.25, matching the
-two-formalism baseline. Interval ordering
-($\text{lo}\le\text{point}\le\text{hi}$) holds at every checkpoint for all
-three formalisms (0/168 violations), the ODE adapter's min/max sort
-correctly handling the sign reversal of the immunity\,$\to$\,virus map
-(more effectors $\Rightarrow$ less virus). As an internal
-propagation-consistency check, the relative half-width of the viral-load
-\texttt{ci\_95} tracks the fused effective-effector interval monotonically
-($r=0.93$), confirming no bound is dropped or double-counted en route; it
-grows from 0\% (pre-recruitment) to $\approx$11.5\% during clearance
-(day 13.75) as the ABM ensemble band and Boolean Wilson interval both become
+\texttt{ci\_95}, and nominal dynamics are preserved (viral peak
+$9.09\times10^{6}$ copies\,mL$^{-1}$ at day 2.25, matching the two-formalism
+baseline). Interval ordering ($\text{lo}\le\text{point}\le\text{hi}$) holds
+at every checkpoint for all three formalisms (0/168 violations), the ODE
+adapter's min/max sort correctly handling the sign reversal of the
+immunity\,$\to$\,virus map. As an internal propagation-consistency check,
+the relative half-width of the viral-load \texttt{ci\_95} tracks the fused
+effective-effector interval monotonically ($r=0.93$), confirming no bound is
+dropped or double-counted; it grows from 0\% (pre-recruitment) to
+$\approx$11.5\% during clearance as both constituent bands become
 non-degenerate (Fig.~\ref{fig:xf-uq}).
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.59\columnwidth]{../figures/tri_formalism_trajectory.pdf}
+\includegraphics[width=0.40\columnwidth]{../figures/tri_formalism_trajectory.pdf}
 \caption{Cross-formalism uncertainty propagation over 14 days.
 (a) Boolean FOXP3$^+$ commitment with its native Monte-Carlo (Wilson)
 95\% band. (b) ABM-recruited effector immunity (ensemble band) and the
@@ -892,41 +902,36 @@ checking} via constraint engine + watchdog each tick.
 Notably, OISA implements credibility at the \emph{composition} level: a
 mis-specified scaling factor silently miscalibrates CTL killing even when
 constituents are individually valid, and the explicit
-\texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML = 100} makes this auditable at the
-multi-model scale with zero internal modifications.
+\texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML = 100} makes this auditable with zero
+internal modifications.
 
 \subsection{Limitations}
-No biological novelty is claimed: the coupling validates that OISA
-orchestrates heterogeneous published models with zero modification to
-either, not any new immunological result.
+The contribution is infrastructural rather than a new immunological
+finding: OISA's value is enabling emergent, cross-compartment questions no
+constituent model can pose alone, not asserting a novel fact about
+influenza. This study exercises that capability on one coupled
+configuration; deriving new immunological results with it is future work.
 Validation covers a single organism (murine) and disease (influenza A),
 for which in-vivo longitudinal tissue-level data are not published in
 directly comparable form. The biological check
-(Sec.~\ref{sec:coupled-valid}) is emergent-feature \emph{face-validity},
-not \emph{prediction}: no parameter of the coupled configuration was fit to
-or tested against simultaneous in-vivo viral$+$immune measurements, and
-absolute magnitudes are not compared. Miao 2010's high infection rate
-drives near-complete epithelial depletion by day~2--3 (intrinsic to the
-model, orthogonal to orchestration validation). The
+(Sec.~\ref{sec:coupled-valid}) is emergent-feature \emph{face-validity}, not
+\emph{prediction}, and absolute magnitudes are not compared. The
 \texttt{\_N\_IMMUNE\_TO\_CTL\_PER\_ML\,$=\,$100} conversion and the
-$\sim$3~OOM mismatch between $V_{\text{total}}\!\approx\!1$\,mL (ODE) and
-the $\approx\!10^{-3}$\,mL tissue patch (ABM) are folded into the single
-functional-range constraint that pins $\kappa$ (\S\ref{sec:valid-setup})
-rather than modelled term-by-term; predictive deployment must instead add
-explicit $V_{\text{tissue}}\!=\!V_{\text{systemic}}\times
-(V_{\text{patch}}/V_{\text{total}})$ normalisation and recalibrate against
-paired data. Two limitations are specific to the third
+$\sim$3~OOM volume mismatch between the ODE ($\approx$1\,mL) and the ABM
+tissue patch ($\approx\!10^{-3}$\,mL) are folded into the single
+functional-range constraint that pins $\kappa$ (\S\ref{sec:valid-setup});
+predictive deployment must instead model this normalisation explicitly and
+recalibrate against paired data. Two limitations are specific to the third
 formalism. First, the Boolean model is relaxed to its quasi-steady-state
-attractor each tick, justified when signalling equilibrates fast relative
-to the 6\,h tick (stable for FOXP3 over $t=30$--$80$ a.u.) but requiring
-sub-tick stepping for tick-timescale signalling. Second, uncertainty is
-fused at boundaries by \emph{interval arithmetic} on bounds, not by
-convolving distributions: conservative and provenance-preserving, but
-yielding no joint density and able to over-cover when ABM-ensemble and
-Boolean sampling errors are correlated (Monte-Carlo density propagation is
-the natural extension). The Treg suppression weight $w$ is a coupling
-hypothesis bounded by sensitivity analysis (\S\ref{sec:valid-sens}) rather
-than fitted to Treg:Teff data.
+attractor each tick, justified when signalling equilibrates fast relative to
+the 6\,h tick (stable for FOXP3 over $t=30$--$80$ a.u.) but requiring
+sub-tick stepping for tick-timescale signalling. Second, uncertainty is fused
+by \emph{interval arithmetic} on bounds: conservative and
+provenance-preserving, but yielding no joint density and able to over-cover
+when ABM-ensemble and Boolean sampling errors are correlated (Monte-Carlo
+density propagation is the natural extension). The Treg suppression weight $w$
+is a coupling hypothesis bounded by sensitivity analysis
+(\S\ref{sec:valid-sens}), not fitted to Treg:Teff data.
 
 %%==============================================================
 
@@ -936,20 +941,19 @@ OISA contributes runtime uncertainty propagated from a stochastic ABM
 ensemble through a deterministic ODE, model-derived transfer lags on edges,
 and a composition-level biological plausibility engine. Coupling two
 independently published influenza models through adapter-only integration,
-with zero changes to either, shows that formalism-agnostic composition with
-runtime UQ is achievable and that emergent bidirectional-coupling behaviour
-neither model produces alone is recovered. The same contract admits a third,
-categorically distinct formalism, indicating the approach generalises beyond
-the ODE--ABM pair.
+with zero source changes, shows formalism-agnostic composition with runtime UQ
+is achievable and recovers emergent bidirectional-coupling behaviour neither
+model produces alone; a third, categorically distinct formalism admitted
+through the same contract indicates the approach generalises beyond the
+ODE--ABM pair.
 
 %%==============================================================
 %% Data & code availability / Competing interests
 %%==============================================================
 \section*{Data, Code, and Competing Interests}
 OISA specifications, ISSL JSON Schema (Draft 2020-12), reference
-orchestrator, adapters, configuration graph, 14-day ISSL data
-(\texttt{results/issl\_14d/}, 2{,}800 files), sensitivity grid, and the full
-test suite (79 adapter + 51 paper--data tests) are at
+orchestrator, adapters, configuration graph, 14-day ISSL data, sensitivity
+grid, and the full test suite (79 adapter + 51 paper--data tests) are at
 \url{https://github.com/Nurtal/IDT_sassy_paper}. Miao 2010 SBML is from
 BioModels unmodified; Sego 2020 from
 \texttt{covid-tissue-models}@\texttt{5b7e42c} (CompuCell3D 4.8.0). The
@@ -959,7 +963,7 @@ author declares no competing interests.
 %% References
 %%==============================================================
 {\scriptsize
-\setlength{\IEEEbibitemsep}{0pt plus 0.1pt}
+%\setlength{\IEEEbibitemsep}{0pt plus 0.1pt}
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 }
